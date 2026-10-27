@@ -1,0 +1,1313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04080a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Holds &amp; Arcs">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} [hidden]{display:none!important} img{max-width:100%}</style>
+<title>Holds &amp; Arcs Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: instrument column (EFIS screens) beside a working column (brief, controls, debrief); one column on phones. */
+:root {
+  --bg: #e7ecec; --surface: #f6f8f8; --raised: #ffffff; --ink: #0f1a1d; --muted: #586a70; --line: #c6d1d3;
+  --accent: #0a6f7d; --accent-ink: #ffffff; --ok: #1d7f47; --warn: #a76a10; --bad: #b0302a; --chip: #dde5e6;
+  --f-ui: "B612", "Segoe UI", system-ui, sans-serif; --f-num: "B612 Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* EFIS screens stay dark in both themes */
+  --scr: #04080a; --scr-line: #1b2a30; --e-white: #e9f0f2; --e-cyan: #3fd3e6; --e-green: #45d66b; --e-mag: #e35bd2; --e-amber: #f0b43a; --e-sky: #2c6aa8; --e-gnd: #7a4d22;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b1113; --surface: #111a1d; --raised: #16211f; --ink: #e2ebec; --muted: #8b9ca1; --line: #26343a;
+  --accent: #3cc3d4; --accent-ink: #04191c; --ok: #4cc27a; --warn: #e0a33a; --bad: #ec665f; --chip: #1c292d; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0b1113; --surface: #111a1d; --raised: #16211f; --ink: #e2ebec; --muted: #8b9ca1; --line: #26343a;
+  --accent: #3cc3d4; --accent-ink: #04191c; --ok: #4cc27a; --warn: #e0a33a; --bad: #ec665f; --chip: #1c292d; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--f-ui); font-size: 15px; line-height: 1.45; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 40px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; font-weight: 700; }
+h1 { font-size: 1.15rem; letter-spacing: .01em; }
+h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+h3 { font-size: 1rem; }
+p { margin: 0; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 16px; }
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+header.top .sub { color: var(--muted); font-size: .85rem; }
+.grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .grid { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); } .instr { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); } }
+.panel > * { min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.instr { display: grid; gap: 10px; min-width: 0; }
+.screen { background: var(--scr); border-radius: 10px; border: 1px solid #000; box-shadow: inset 0 0 0 3px #10181b; overflow: hidden; }
+canvas { display: block; width: 100%; height: auto; }
+.readouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ro { background: var(--scr); color: var(--e-white); border-radius: 8px; padding: 6px 8px; display: grid; gap: 0; min-width: 0; }
+.ro small { font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: #8aa0a6; }
+.ro b { font-family: var(--f-num); font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ro.chrono b { color: var(--e-amber); }
+.knobs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.knob { display: grid; grid-template-columns: 52px 44px 44px minmax(0, 1fr) 44px 44px; align-items: center; gap: 6px; }
+.knob .lbl { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.knob .val { text-align: center; font-family: var(--f-num); font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.knob .val.hdg { color: var(--accent); }
+button { font: inherit; color: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--raised); min-height: 44px; padding: 0 12px; touch-action: manipulation; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+button.step { padding: 0; font-family: var(--f-num); font-weight: 700; }
+button[aria-pressed="true"] { background: var(--chip); border-color: var(--accent); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > * { min-width: 0; }
+.seg { display: inline-grid; grid-auto-flow: column; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; min-height: 40px; background: transparent; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.brief { display: grid; gap: 6px; }
+.clr { font-family: var(--f-num); background: var(--chip); border-radius: 8px; padding: 10px 12px; font-size: .92rem; line-height: 1.5; }
+.meta { color: var(--muted); font-size: .85rem; }
+.list { display: grid; gap: 4px; }
+.group-h { margin-top: 6px; }
+.proc { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; text-align: left; padding: 8px 10px; min-height: 52px; border-radius: 8px; background: transparent; border: 1px solid transparent; }
+.proc[aria-pressed="true"] { background: var(--raised); border-color: var(--accent); }
+.proc .t { font-weight: 700; }
+.proc .s { color: var(--muted); font-size: .82rem; grid-column: 1; }
+.proc .lvl { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-family: var(--f-num); font-size: .82rem; color: var(--muted); }
+.toggles { display: grid; gap: 8px; }
+label.tg { display: flex; gap: 10px; align-items: center; min-height: 40px; }
+label.tg input { width: 20px; height: 20px; accent-color: var(--accent); }
+.status { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; font-size: .75rem; font-weight: 700; letter-spacing: .04em; border: 1px solid currentColor; white-space: nowrap; }
+.pill.ok { color: var(--ok); } .pill.bad { color: var(--bad); } .pill.warn { color: var(--warn); } .pill.neutral { color: var(--muted); }
+.debrief { display: grid; gap: 14px; }
+.verdict { display: grid; gap: 4px; }
+.verdict p { max-width: 65ch; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+td.n { font-family: var(--f-num); font-variant-numeric: tabular-nums; text-align: right; }
+th.n { text-align: right; }
+.cite { font-size: .72rem; color: var(--muted); font-family: var(--f-num); overflow-wrap: anywhere; }
+.cite.uns { color: var(--warn); }
+.tips { display: grid; gap: 8px; }
+.tip { border-left: 3px solid var(--accent); padding: 4px 0 4px 10px; max-width: 70ch; }
+.tip.tech { border-left-color: var(--warn); }
+.mapbox { background: var(--raised); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .78rem; color: var(--muted); padding: 8px 10px; }
+.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+details { border-top: 1px solid var(--line); padding-top: 10px; min-width: 0; }
+summary { cursor: pointer; font-weight: 700; min-height: 32px; display: flex; align-items: center; }
+.checks { display: grid; gap: 8px; margin-top: 8px; }
+.check { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: start; }
+.check .d { grid-column: 2; color: var(--muted); font-size: .82rem; }
+.rules { display: grid; gap: 8px; margin-top: 8px; }
+.rule { display: grid; gap: 2px; min-width: 0; }
+.rule .r { max-width: 70ch; }
+.note { color: var(--muted); font-size: .85rem; max-width: 70ch; }
+.hint { font-size: .82rem; color: var(--muted); }
+.empty { color: var(--muted); padding: 10px 0; }
+.recent { display: grid; gap: 4px; font-size: .85rem; }
+.recent div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding: 4px 0; }
+@media (hover: none) { #kbdHint { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Holds &amp; Arcs Trainer</h1>
+      <p class="sub">DHC-8-106 · 150 KIAS clean · raw VOR/DME · real procedures from your plates</p>
+    </div>
+    <div class="row">
+      <span class="pill neutral" id="checksPill">Checks</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="instr" aria-label="Instruments">
+      <div class="screen"><canvas id="eadi" width="440" height="190" aria-label="Attitude display"></canvas></div>
+      <div class="screen"><canvas id="ehsi" width="440" height="440" aria-label="Horizontal situation display"></canvas></div>
+      <div class="readouts">
+        <div class="ro"><small>DME <span id="dmeId">NV</span></small><b id="roDme">--.-</b></div>
+        <div class="ro"><small>GS kt</small><b id="roGs">---</b></div>
+        <div class="ro chrono"><small>Chrono</small><b id="roChrono">0:00</b></div>
+      </div>
+      <div class="knobs" role="group" aria-label="Heading and course">
+        <div class="knob">
+          <span class="lbl">HDG</span>
+          <button class="step" id="h-10" aria-label="Heading bug left 10">−10</button>
+          <button class="step" id="h-1" aria-label="Heading bug left 1">−1</button>
+          <span class="val hdg num" id="hdgVal">000</span>
+          <button class="step" id="h+1" aria-label="Heading bug right 1">+1</button>
+          <button class="step" id="h+10" aria-label="Heading bug right 10">+10</button>
+        </div>
+        <div class="knob">
+          <span class="lbl">CRS</span>
+          <button class="step" id="c-10" aria-label="Course left 10">−10</button>
+          <button class="step" id="c-1" aria-label="Course left 1">−1</button>
+          <span class="val num" id="crsVal">000</span>
+          <button class="step" id="c+1" aria-label="Course right 1">+1</button>
+          <button class="step" id="c+10" aria-label="Course right 10">+10</button>
+        </div>
+      </div>
+      <div class="row">
+        <button class="primary" id="runBtn" style="flex:1 1 120px">Start</button>
+        <button id="chronoBtn" style="flex:1 1 90px">Chrono start</button>
+        <button id="chronoReset" aria-label="Reset chrono">Reset</button>
+      </div>
+      <div class="row">
+        <div class="seg" role="group" aria-label="Simulation speed">
+          <button data-speed="1" aria-pressed="true">×1</button><button data-speed="2" aria-pressed="false">×2</button><button data-speed="4" aria-pressed="false">×4</button>
+        </div>
+        <button id="finishBtn" style="flex:1 1 120px" disabled>Finish and debrief</button>
+      </div>
+      <p class="hint" id="kbdHint">Keys: ←/→ heading 1° (Shift 10°), ↑/↓ course, Space chrono, P pause.</p>
+    </section>
+
+    <section style="display:grid; gap:16px; min-width:0">
+      <div class="panel brief">
+        <div class="status"><span id="procLine">—</span><span class="num" id="seedLine"></span></div>
+        <div class="clr" id="clearance">—</div>
+        <p class="meta" id="briefMeta"></p>
+        <p class="meta" id="briefTech"></p>
+      </div>
+
+      <div class="panel" id="debriefPanel">
+        <div class="row" style="justify-content:space-between">
+          <h2>Debrief</h2>
+          <span class="pill neutral" id="debriefState">Not flown yet</span>
+        </div>
+        <div class="debrief" id="debrief">
+          <p class="empty">Fly the procedure, then tap <b>Finish and debrief</b>. For a hold, fly the entry and two full circuits. You'll get your track, the entry check, timing and needle numbers for each circuit, and the heading that would have worked in this wind.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Procedure</h2>
+        <div class="list" id="procList"></div>
+        <div class="toggles">
+          <div class="row"><span class="meta" style="min-width:64px">Wind</span>
+            <div class="seg" role="group" aria-label="Wind strength" id="windSeg">
+              <button data-wind="calm" aria-pressed="false">Calm</button><button data-wind="light" aria-pressed="false">Light</button><button data-wind="moderate" aria-pressed="true">Moderate</button><button data-wind="strong" aria-pressed="false">Strong</button>
+            </div>
+          </div>
+          <label class="tg"><input type="checkbox" id="tgWind" checked> Give the forecast wind in the brief</label>
+          <label class="tg"><input type="checkbox" id="tgMap"> Show the map while flying (practice mode)</label>
+        </div>
+        <div class="row">
+          <button class="primary" id="newBtn">New scenario</button>
+          <button id="randomBtn">Random procedure</button>
+        </div>
+        <div>
+          <h2 style="margin-bottom:6px">Recent runs on this device</h2>
+          <div class="recent" id="recent"><p class="empty">None yet.</p></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>How this trainer is checked</h2>
+        <p class="note" id="checkSummary"></p>
+        <details>
+          <summary>Test results</summary>
+          <div class="checks" id="checkList"></div>
+        </details>
+        <details>
+          <summary>Plate check: fixes against the Jeppesen plan views</summary>
+          <p class="note" style="margin-top:8px">Each fix was entered as radial and DME from your plates. Its position was then predicted on the rendered plan view, using the plate's own NM scale and magnetic variation (plan views are true-north up). It was then compared with where the plate draws the symbol.</p>
+          <div class="tablewrap"><table id="plateTable"><thead><tr><th>Chart</th><th>Fix</th><th class="n">Off by</th><th></th></tr></thead><tbody></tbody></table></div>
+        </details>
+        <details>
+          <summary>Rules and where they come from</summary>
+          <div class="rules" id="ruleList"></div>
+        </details>
+        <details>
+          <summary>Not yet checked</summary>
+          <ul class="note" style="padding-left:18px; margin:8px 0 0; display:grid; gap:6px">
+            <li>Pass marks are provisional until the KCAA instrument rating skill test tolerances are added.</li>
+            <li>The 70° sector line and ±5° flexibility come from the Doc 8168 figure, which isn't in the free text used here. Check them against your ATPL book.</li>
+            <li>No ForeFlight track logs yet, so the model hasn't been compared with your real flown holds and arcs.</li>
+            <li>Station declination isn't printed on the plates, so each procedure uses the airport's magnetic variation. This only matters when comparing with GPS tracks.</li>
+            <li>Roll rate (5°/s) and heading-mode behaviour are model assumptions, not taken from the AFM.</li>
+            <li>Training use only. Chart data is from cycle 13-2026 and is not for navigation.</li>
+          </ul>
+        </details>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+/* IFR holding and arc trainer: flight and navigation engine.
+ * Pure functions, no DOM. Units: NM, kt, ft, s, degrees.
+ * Frame: local flat plane centred on the VOR, x east and y north, both
+ * referenced to magnetic north for the procedure (one variation per scenario).
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.IFR = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  const G = 9.80665, KT_MS = 0.514444, NM_FT = 6076.12;
+  const TURN_K = (G / KT_MS) * R2D; // deg/s = TURN_K * tan(bank) / TAS(kt)
+  const ROLL_RATE = 5;   // deg/s, model assumption (rule "roll")
+  const HDG_GAIN = 2.5;  // deg of bank per deg of heading error
+  const DT = 0.1;        // s, fixed physics step
+  const SAMPLE = 0.5;    // s, recorded track interval
+
+  const n360 = a => { a %= 360; return a < 0 ? a + 360 : a; };
+  const n180 = a => { a = n360(a); return a > 180 ? a - 360 : a; };
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ---------- atmosphere ---------- */
+  function isa(altFt, isaDevC) {
+    const T = 288.15 - 0.0019812 * altFt + (isaDevC || 0);
+    const delta = Math.pow(1 - 6.8755856e-6 * altFt, 5.2558797);
+    return { T, delta };
+  }
+  function tasFromCas(cas, altFt, isaDevC) {
+    const P0 = 101325, a0 = 661.4786;
+    const { T, delta } = isa(altFt, isaDevC);
+    const qc = P0 * (Math.pow(1 + 0.2 * Math.pow(cas / a0, 2), 3.5) - 1);
+    const M = Math.sqrt(5 * (Math.pow(qc / (P0 * delta) + 1, 2 / 7) - 1));
+    return M * 38.967854 * Math.sqrt(T);
+  }
+
+  /* ---------- turns ---------- */
+  const turnRate = (bank, tas) => TURN_K * Math.tan(bank * D2R) / tas;
+  const rateOneBank = tas => Math.atan(3 * tas / TURN_K) * R2D;
+  const holdingBank = tas => Math.min(25, rateOneBank(tas));
+  const rateOneLimitTas = () => TURN_K * Math.tan(25 * D2R) / 3;
+  function turnRadiusNm(tas, bank) {
+    const w = turnRate(bank, tas) * D2R;
+    return (tas / 3600) / w;
+  }
+
+  /* ---------- wind ---------- */
+  function windVec(from, kt) {
+    const d = (from + 180) * D2R;
+    return [Math.sin(d) * kt, Math.cos(d) * kt];
+  }
+  function headingForTrack(track, tas, wFrom, wKt) {
+    const w = windVec(wFrom, wKt), tr = track * D2R;
+    const cross = w[0] * Math.cos(tr) - w[1] * Math.sin(tr);
+    const wca = -Math.asin(clamp(cross / tas, -1, 1)) * R2D;
+    const along = w[0] * Math.sin(tr) + w[1] * Math.cos(tr);
+    return { hdg: n360(track + wca), wca, gs: tas * Math.cos(wca * D2R) + along };
+  }
+
+  /* ---------- aircraft ---------- */
+  function makeAircraft(o) {
+    return { t: 0, x: o.x, y: o.y, hdg: n360(o.hdg), bank: 0, bug: n360(o.hdg), turnDir: 0,
+      alt: o.alt, ias: o.ias, tas: o.tas, gs: o.tas, trk: n360(o.hdg), _rem: null };
+  }
+  /* Heading bug. pressDir: +1 bug moved right, -1 moved left, 0 = set directly
+   * (shortest turn). The aircraft turns the way the bug was moved, as in HDG
+   * mode when the pilot winds the bug round; a small opposite nudge during a
+   * turn does not reverse it. */
+  function setBug(s, bug, pressDir) {
+    s.bug = n360(bug);
+    s._rem = null;
+    const err = n180(s.bug - s.hdg);
+    if (!pressDir) { s.turnDir = Math.abs(err) < 0.3 ? 0 : Math.sign(err); return; }
+    if (s.turnDir && pressDir !== s.turnDir) {
+      const remCur = n360((s.bug - s.hdg) * s.turnDir);
+      if (remCur <= 340) return;
+    }
+    const rem = n360((s.bug - s.hdg) * pressDir);
+    if (rem < 0.3 || rem > 359.7) { s.turnDir = 0; return; }
+    s.turnDir = rem <= 300 ? pressDir : Math.sign(err);
+  }
+  function step(s, env, dt) {
+    const maxBank = holdingBank(s.tas);
+    let cmd;
+    if (s.turnDir) {
+      const rem = n360((s.bug - s.hdg) * s.turnDir);
+      const passed = s._rem !== null && s._rem < 45 && rem > 315;
+      if (passed || rem < 0.2) { s.turnDir = 0; s._rem = null; cmd = HDG_GAIN * n180(s.bug - s.hdg); }
+      else { s._rem = rem; cmd = s.turnDir * Math.min(maxBank, HDG_GAIN * rem); }
+    } else cmd = HDG_GAIN * n180(s.bug - s.hdg);
+    cmd = clamp(cmd, -maxBank, maxBank);
+    s.bank += clamp(cmd - s.bank, -ROLL_RATE * dt, ROLL_RATE * dt);
+    s.hdg = n360(s.hdg + turnRate(s.bank, s.tas) * dt);
+    const w = windVec(env.windFrom, env.windKt);
+    const vx = s.tas * Math.sin(s.hdg * D2R) + w[0], vy = s.tas * Math.cos(s.hdg * D2R) + w[1];
+    s.x += vx * dt / 3600; s.y += vy * dt / 3600; s.t += dt;
+    s.gs = Math.hypot(vx, vy); s.trk = n360(Math.atan2(vx, vy) * R2D);
+    return s;
+  }
+
+  /* ---------- navigation ---------- */
+  const radialOf = (st, x, y) => n360(Math.atan2(x - st.x, y - st.y) * R2D);
+  function dmeSlant(st, x, y, altFt) {
+    const g = Math.hypot(x - st.x, y - st.y), dz = (altFt - st.elevFt) / NM_FT;
+    return Math.hypot(g, dz);
+  }
+  /* Needle: + = needle right of centre (fly right). Full scale ±10°. */
+  function cdi(course, st, x, y) {
+    const rad = radialOf(st, x, y), brgTo = n360(rad + 180);
+    const to = Math.abs(n180(course - brgTo)) < 90;
+    const dev = to ? n180(brgTo - course) : n180(course - rad);
+    return { dev, to, rad, brgTo };
+  }
+  function pointFromRadial(st, radial, dme, altFt) {
+    const dz = (altFt - st.elevFt) / NM_FT;
+    const g = Math.sqrt(Math.max(0, dme * dme - dz * dz));
+    return { x: st.x + g * Math.sin(radial * D2R), y: st.y + g * Math.cos(radial * D2R) };
+  }
+
+  /* ---------- holding geometry ---------- */
+  function holdFrame(inbound, turn) {
+    const c = inbound * D2R;
+    return { u: [Math.sin(c), Math.cos(c)], n: [turn * Math.cos(c), -turn * Math.sin(c)] };
+  }
+  /* along: + past the fix (in the inbound direction). lat: + on the holding side. */
+  function holdCoords(h, x, y) {
+    const f = holdFrame(h.inbound, h.turn), dx = x - h.fx, dy = y - h.fy;
+    return { along: dx * f.u[0] + dy * f.u[1], lat: dx * f.n[0] + dy * f.n[1] };
+  }
+  /* Entry sector from heading on reaching the fix (rule "sectors70", unsourced). */
+  function entrySector(hdg, inbound, turn, flex) {
+    flex = flex === undefined ? 5 : flex;
+    const d = n180((hdg - inbound) * turn);
+    const primary = (d >= -70 && d <= 110) ? 'direct' : (d > 110 ? 'offset' : 'parallel');
+    const allowed = new Set([primary]);
+    if (Math.abs(d + 70) <= flex) { allowed.add('direct'); allowed.add('parallel'); }
+    if (Math.abs(d - 110) <= flex) { allowed.add('direct'); allowed.add('offset'); }
+    if (180 - Math.abs(d) <= flex) { allowed.add('offset'); allowed.add('parallel'); }
+    return { primary, allowed: [...allowed].sort(), rel: d };
+  }
+  const outboundCourse = h => n360(h.inbound + 180);
+  const offsetCourse = h => n360(h.inbound + 180 - 30 * h.turn);
+
+  /* ---------- scenarios ---------- */
+  const WIND_LEVELS = { calm: [0, 0], light: [5, 15], moderate: [15, 30], strong: [30, 45] };
+  function buildScenario(proc, opts) {
+    opts = opts || {};
+    const seed = (opts.seed >>> 0) || 1;
+    const rnd = mulberry32(seed);
+    const lvl = WIND_LEVELS[opts.wind || 'moderate'];
+    const windKt = lvl[1] === 0 ? 0 : Math.round((lvl[0] + rnd() * (lvl[1] - lvl[0])) / 5) * 5;
+    const windFrom = Math.round(rnd() * 36) * 10 % 360 || 360;
+    const isaDev = Math.round(rnd() * 4) * 5;
+    const st = { x: 0, y: 0, elevFt: proc.station.elevFt, ident: proc.station.ident };
+    const ias = 150;
+    const env = { windFrom: windFrom % 360, windKt, isaDev };
+    const sc = { proc, seed, env, station: st, ias, kind: proc.kind };
+    let alt, start;
+    if (proc.kind === 'hold') {
+      const H = proc.hold;
+      alt = H.altFt;
+      const turn = H.turn === 'R' ? 1 : -1;
+      const fix = H.fix.type === 'navaid' ? { x: 0, y: 0 } : pointFromRadial(st, H.fix.radial, H.fix.dme, alt);
+      sc.hold = { fx: fix.x, fy: fix.y, inbound: H.inbound, turn, legTime: alt > 14000 ? 90 : 60,
+        dmeLimit: H.dmeLimit || null, fixType: H.fix.type, fixName: H.fix.name,
+        fixRadial: H.fix.radial, fixDme: H.fix.dme, entryAlongInboundOnly: !!H.entryAlongInboundOnly };
+    } else {
+      const A = proc.arc;
+      alt = A.altFt;
+      sc.arc = { R: A.radius, dir: A.dir === 'CW' ? 1 : -1, endRadial: A.endRadial, exitCourse: A.exitCourse,
+        startRadial: A.startRadial };
+    }
+    const S = proc.start;
+    if (S.type === 'random') {
+      const brg = rnd() * 360;
+      const f = sc.hold;
+      start = { x: f.fx + S.dist * Math.sin(brg * D2R), y: f.fy + S.dist * Math.cos(brg * D2R), hdg: n360(brg + 180) };
+    } else {
+      const p = pointFromRadial(st, S.radial, S.dme, alt);
+      start = { x: p.x, y: p.y, hdg: S.heading };
+    }
+    sc.altFt = alt;
+    sc.tas = tasFromCas(ias, alt, isaDev);
+    sc.start = start;
+    sc.bankLimit = holdingBank(sc.tas);
+    sc.governs = rateOneBank(sc.tas) < 25 ? 'rate1' : 'bank25';
+    return sc;
+  }
+  function newRun(sc) {
+    const ac = makeAircraft({ x: sc.start.x, y: sc.start.y, hdg: Math.round(sc.start.hdg), alt: sc.altFt, ias: sc.ias, tas: sc.tas });
+    return { sc, ac, samples: [], nextSample: 0, events: [] };
+  }
+  function sampleOf(run) {
+    const { ac, sc } = run, st = sc.station;
+    const smp = { t: +ac.t.toFixed(2), x: ac.x, y: ac.y, hdg: ac.hdg, bank: ac.bank, trk: ac.trk, gs: ac.gs,
+      rad: radialOf(st, ac.x, ac.y), dme: dmeSlant(st, ac.x, ac.y, ac.alt) };
+    if (sc.hold) {
+      const hc = holdCoords(sc.hold, ac.x, ac.y);
+      smp.along = hc.along; smp.lat = hc.lat;
+      smp.dfix = Math.hypot(ac.x - sc.hold.fx, ac.y - sc.hold.fy);
+      smp.dev = cdi(sc.hold.inbound, st, ac.x, ac.y).dev;
+    }
+    return smp;
+  }
+  function advance(run, seconds) {
+    const n = Math.round(seconds / DT);
+    for (let i = 0; i < n; i++) {
+      step(run.ac, run.sc.env, DT);
+      if (run.ac.t + 1e-9 >= run.nextSample) { run.samples.push(sampleOf(run)); run.nextSample += SAMPLE; }
+    }
+  }
+
+  /* ---------- analysis helpers ---------- */
+  function passages(samples, key, maxDist, minGap) {
+    const out = [];
+    for (let i = 1; i < samples.length - 1; i++) {
+      const a = samples[i - 1][key], b = samples[i][key], c = samples[i + 1][key];
+      if (b <= a && b < c && b < maxDist) {
+        if (out.length && samples[i].t - samples[out[out.length - 1]].t < minGap) {
+          if (b < samples[out[out.length - 1]][key]) out[out.length - 1] = i;
+        } else out.push(i);
+      }
+    }
+    return out;
+  }
+  function firstIndex(samples, from, to, pred) {
+    for (let i = from; i < to; i++) if (pred(samples[i], i)) return i;
+    return -1;
+  }
+  function steadyAfter(samples, from, to, secs) {
+    const need = Math.round(secs / SAMPLE);
+    let run = 0;
+    for (let i = from; i < to; i++) {
+      if (Math.abs(samples[i].bank) < 3) { run++; if (run >= need) return i - need + 1; } else run = 0;
+    }
+    return -1;
+  }
+  /* Which entry was flown? Direct: first turn of 60° or more toward the holding
+   * side. Parallel: the turn back toward the inbound track goes the opposite way
+   * to the pattern. Offset: a small first turn, then a return turn the same way
+   * as the pattern. */
+  function classifyEntry(sc, samples, i0, i1) {
+    const h = sc.hold;
+    const iS = steadyAfter(samples, i0 + 6, i1, 5);
+    if (iS < 0) return { flown: 'unclear', why: 'no wings-level leg after the fix' };
+    const j = Math.min(iS + 4, i1 - 1), s = samples[j];
+    let turned = 0;
+    for (let i = i0 + 1; i <= j; i++) turned += n180(samples[i].hdg - samples[i - 1].hdg) * h.turn;
+    let ret = 0;
+    for (let i = j + 1; i < i1 && Math.abs(ret) < 90; i++) ret += n180(samples[i].hdg - samples[i - 1].hdg) * h.turn;
+    const trackRel = n180(s.trk - outboundCourse(h)) * h.turn;
+    const base = { s, trackRel, turned, ret };
+    if (Math.abs(ret) >= 90) {
+      if (ret < 0) return Object.assign(base, { flown: 'parallel' });
+      return Object.assign(base, { flown: turned >= 60 ? 'direct' : 'offset' });
+    }
+    if (s.lat < -0.1) return Object.assign(base, { flown: 'parallel' });
+    if (turned >= 60) return Object.assign(base, { flown: 'direct' });
+    if (turned > -60) return Object.assign(base, { flown: 'offset' });
+    return Object.assign(base, { flown: 'unclear', why: 'turned away from the holding side' });
+  }
+
+  /* ---------- ideal-solution solvers (computed technique, rule "PHYS") ---------- */
+  function simCircuit(p, Ho, To, from) {
+    const h = p.hold, hi = headingForTrack(h.inbound, p.tas, p.env.windFrom, p.env.windKt).hdg;
+    const s = makeAircraft({ x: from ? from.x : h.fx, y: from ? from.y : h.fy, hdg: from ? from.hdg : hi, alt: p.altFt, ias: 150, tas: p.tas });
+    if (from && from.bank) s.bank = from.bank;
+    setBug(s, Ho, h.turn);
+    const st = p.station;
+    let tAbeam = null, phase = 'out', tRoll = null, latRoll = null, along;
+    for (let i = 0; i < 6000; i++) {
+      step(s, p.env, DT);
+      const hc = holdCoords(h, s.x, s.y);
+      if (phase === 'out') {
+        if (tAbeam === null && hc.along <= 0 && s.t > 5) tAbeam = s.t;
+        const done = h.dmeLimit ? dmeSlant(st, s.x, s.y, p.altFt) >= h.dmeLimit && tAbeam !== null
+          : tAbeam !== null && s.t - tAbeam >= To;
+        if (done && Math.abs(n180(s.bug - s.hdg)) < 3) { setBug(s, hi, h.turn); phase = 'in'; }
+      } else if (phase === 'in') {
+        if (Math.abs(n180(s.bug - s.hdg)) < 2 && Math.abs(s.bank) < 3) { tRoll = s.t; latRoll = hc.lat; phase = 'track'; }
+      } else {
+        if (hc.along >= 0) return { latRoll, inboundTime: s.t - tRoll, tAbeam };
+      }
+      along = hc.along;
+    }
+    return { latRoll: latRoll === null ? 99 : latRoll, inboundTime: NaN, tAbeam };
+  }
+  function bisect(f, a, b, it) {
+    let fa = f(a), fb = f(b);
+    if (!isFinite(fa) || !isFinite(fb) || fa * fb > 0) return null;
+    for (let i = 0; i < (it || 40); i++) {
+      const m = (a + b) / 2, fm = f(m);
+      if (fa * fm <= 0) { b = m; fb = fm; } else { a = m; fa = fm; }
+    }
+    return (a + b) / 2;
+  }
+  function idealOutboundHeading(p, To, from) {
+    const out = outboundCourse(p.hold);
+    const f = o => simCircuit(p, n360(out + o), To, from).latRoll;
+    let off = bisect(f, -60, 60, 30);
+    if (off === null) off = bisect(f, -85, -60, 25);
+    if (off === null) off = bisect(f, 60, 85, 25);
+    if (off === null) {
+      // No sign change: take the heading that rolls out closest to the inbound track.
+      let best = null, bv = Infinity;
+      for (let o = -85; o <= 85; o += 5) { const v = Math.abs(f(o)); if (v < bv) { bv = v; best = o; } }
+      let a = best - 5, b = best + 5;
+      for (let i = 0; i < 20; i++) {
+        const m1 = a + (b - a) * 0.382, m2 = a + (b - a) * 0.618;
+        if (Math.abs(f(m1)) < Math.abs(f(m2))) b = m2; else a = m1;
+      }
+      off = (a + b) / 2;
+      if (Math.abs(f(off)) > 0.15) return null;
+    }
+    return n360(out + off);
+  }
+  function idealHold(p) {
+    const To = p.hold.legTime;
+    const Ho = idealOutboundHeading(p, To);
+    const res = { rule: { To, Ho } };
+    if (Ho !== null) res.rule.inboundTime = simCircuit(p, Ho, To).inboundTime;
+    if (!p.hold.dmeLimit) {
+      const T = bisect(t => {
+        const H = idealOutboundHeading(p, t);
+        return H === null ? NaN : simCircuit(p, H, t).inboundTime - p.hold.legTime;
+      }, 15, 150, 18);
+      if (T !== null) res.technique = { To: T, Ho: idealOutboundHeading(p, T) };
+    }
+    return res;
+  }
+  const arcTangent = (rad, dir) => n360(rad + 90 * dir);
+  /* From a straight leg, where should the turn onto the arc start? */
+  function arcJoinLead(p, start) {
+    const st = p.station, A = p.arc;
+    const hdg0 = start.hdg;
+    const crossT = (() => {
+      const s = makeAircraft({ x: start.x, y: start.y, hdg: hdg0, alt: p.altFt, ias: 150, tas: p.tas });
+      const d0 = dmeSlant(st, s.x, s.y, p.altFt) - A.R;
+      for (let i = 0; i < 20000; i++) { step(s, p.env, DT); if ((dmeSlant(st, s.x, s.y, p.altFt) - A.R) * d0 <= 0) return s.t; }
+      return null;
+    })();
+    if (crossT === null) return null;
+    const f = tc => {
+      const s = makeAircraft({ x: start.x, y: start.y, hdg: hdg0, alt: p.altFt, ias: 150, tas: p.tas });
+      for (let t = 0; t < tc; t += DT) step(s, p.env, DT);
+      const d = { dme: dmeSlant(st, s.x, s.y, p.altFt), rad: radialOf(st, s.x, s.y) };
+      for (let i = 0; i < 3000; i++) {
+        const tgt = headingForTrack(arcTangent(radialOf(st, s.x, s.y), A.dir), p.tas, p.env.windFrom, p.env.windKt).hdg;
+        if (i === 0) setBug(s, tgt, 0); else s.bug = tgt;
+        step(s, p.env, DT);
+        if (i > 20 && Math.abs(n180(s.bug - s.hdg)) < 2 && Math.abs(s.bank) < 3) break;
+      }
+      f.last = d;
+      return dmeSlant(st, s.x, s.y, p.altFt) - A.R;
+    };
+    const tc = bisect(f, Math.max(0, crossT - 300), crossT, 30);
+    if (tc === null) return null;
+    f(tc);
+    return { tStart: tc, dmeStart: f.last.dme, radStart: f.last.rad, radiusNm: turnRadiusNm(p.tas, holdingBank(p.tas)) };
+  }
+  /* Leaving the arc onto a course to the station: lead radial. */
+  function arcExitLead(p) {
+    const st = p.station, A = p.arc, finalRad = n360(A.exitCourse + 180);
+    const hf = headingForTrack(A.exitCourse, p.tas, p.env.windFrom, p.env.windKt).hdg;
+    const f = lead => {
+      const rad = n360(finalRad - A.dir * lead);
+      const g = A.R;
+      const s = makeAircraft({ x: g * Math.sin(rad * D2R), y: g * Math.cos(rad * D2R),
+        hdg: headingForTrack(arcTangent(rad, A.dir), p.tas, p.env.windFrom, p.env.windKt).hdg, alt: p.altFt, ias: 150, tas: p.tas });
+      setBug(s, hf, 0);
+      for (let i = 0; i < 3000; i++) { step(s, p.env, DT); if (i > 20 && Math.abs(n180(s.bug - s.hdg)) < 2 && Math.abs(s.bank) < 3) break; }
+      return cdi(A.exitCourse, st, s.x, s.y).dev * A.dir;
+    };
+    const lead = bisect(f, 0.2, 40, 30);
+    return lead === null ? null : { lead, leadRadial: n360(finalRad - A.dir * lead) };
+  }
+
+  /* ---------- debrief analysis ---------- */
+  const TOL = { inboundDeg: 5, outboundSec: 10, dmeLimitNm: 0.3, arcNm: 1.0 };
+  function analyzeHold(run) {
+    const sc = run.sc, h = sc.hold, S = run.samples;
+    const res = { kind: 'hold', circuits: [], tol: TOL };
+    const Pall = passages(S, 'dfix', 1.5, 40);
+    const P = Pall.filter((i, k) => k === 0 || (S[i].dfix < 1.2 && Math.abs(n180(S[i].hdg - h.inbound)) < 70));
+    res.passages = P.map(i => S[i].t);
+    if (!P.length) { res.summary = 'The fix was not reached.'; return res; }
+    const i0 = P[0], arr = S[i0];
+    const hdgAtFix = S[Math.max(0, i0 - 2)].hdg;
+    const sector = entrySector(hdgAtFix, h.inbound, h.turn);
+    res.entry = { hdgAtFix, sector, dfix: arr.dfix };
+    if (h.entryAlongInboundOnly) res.entry.alongInboundOnly = true;
+    const iEnd = P.length > 1 ? P[1] : S.length;
+    const cls = classifyEntry(sc, S, i0, iEnd);
+    res.entry.flown = cls.flown;
+    res.entry.why = cls.why || null;
+    res.entry.ok = sector.allowed.includes(cls.flown);
+    for (let k = 1; k < P.length; k++) {
+      const a = P[k], b = k + 1 < P.length ? P[k + 1] : -1;
+      const c = { n: k, complete: b > 0 };
+      const end = b > 0 ? b : S.length;
+      const iTurnOut = firstIndex(S, a, end, s => s.bank * h.turn > 8);
+      if (iTurnOut < 0) { res.circuits.push(c); continue; }
+      const iOutLevel = firstIndex(S, iTurnOut, end, s => Math.abs(s.bank) < 3);
+      const iAbeam = firstIndex(S, a + 4, end, (s, i) => i > 0 && S[i - 1].along > 0 && s.along <= 0 && s.lat > 0.2);
+      let iTurnIn = -1;
+      if (iOutLevel >= 0) {
+        const ref = S[iOutLevel].hdg;
+        const iDone = firstIndex(S, iOutLevel, end, s => n180(s.hdg - ref) * h.turn > 45);
+        if (iDone >= 0) { iTurnIn = iDone; while (iTurnIn > iOutLevel && S[iTurnIn - 1].bank * h.turn > 3) iTurnIn--; }
+      }
+      if (iAbeam >= 0) c.tAbeam = S[iAbeam].t;
+      if (iOutLevel >= 0 && iTurnIn > iOutLevel) {
+        let sx = 0, sy = 0;
+        for (let i = iOutLevel; i < iTurnIn; i++) { sx += Math.sin(S[i].hdg * D2R); sy += Math.cos(S[i].hdg * D2R); }
+        c.outboundHdg = n360(Math.atan2(sx, sy) * R2D);
+      }
+      if (iTurnIn >= 0) {
+        c.dmeAtTurnIn = S[iTurnIn].dme;
+        if (iAbeam >= 0) {
+          c.outboundTime = S[iTurnIn].t - S[iAbeam].t;
+          c.abeamInTurn = iOutLevel < 0 || iAbeam < iOutLevel;
+        }
+        const iRoll = firstIndex(S, iTurnIn + 4, end, s => Math.abs(s.bank) < 3);
+        if (iRoll >= 0) {
+          c.rollLat = S[iRoll].lat;
+          if (b > 0) {
+            c.inboundTime = S[b].t - S[iRoll].t;
+            let mx = 0, sum = 0, nn = 0;
+            const from = Math.min(b, iRoll + 6);
+            for (let i = from; i < b; i++) {
+              if (Math.hypot(S[i].x - sc.station.x, S[i].y - sc.station.y) < 1.0) continue;
+              const d = Math.abs(S[i].dev); mx = Math.max(mx, d); sum += d; nn++;
+            }
+            c.inboundMaxDev = nn ? mx : null; c.inboundMeanDev = nn ? sum / nn : null;
+          }
+        }
+      }
+      let minLat = 0;
+      for (let i = a; i < end; i++) minLat = Math.min(minLat, S[i].lat);
+      c.nonHoldSideNm = -minLat;
+      const fromState = { x: S[a].x, y: S[a].y, hdg: S[a].hdg, bank: S[a].bank };
+      const hc0 = idealOutboundHeading(sc, h.legTime, fromState);
+      if (hc0 !== null) c.idealHo = hc0;
+      if (h.dmeLimit) c.dmeOk = c.dmeAtTurnIn !== undefined && Math.abs(c.dmeAtTurnIn - h.dmeLimit) <= TOL.dmeLimitNm;
+      else c.timeOk = c.outboundTime !== undefined && Math.abs(c.outboundTime - h.legTime) <= TOL.outboundSec;
+      c.trackOk = c.inboundMaxDev === undefined ? false : c.inboundMaxDev === null ? null : c.inboundMaxDev <= TOL.inboundDeg;
+      res.circuits.push(c);
+    }
+    let fuelS = 0;
+    if (P.length) fuelS = S[S.length - 1].t - S[P[0]].t;
+    res.holdTime = fuelS;
+    res.fuelLb = 900 * fuelS / 3600;
+    res.ideal = idealHold(sc);
+    return res;
+  }
+  function analyzeArc(run, joinStartIdx) {
+    const sc = run.sc, A = sc.arc, S = run.samples, st = sc.station;
+    const res = { kind: 'arc', tol: TOL };
+    const prog = s => n180(s.rad - A.endRadial) * A.dir;
+    const h0 = S[0].hdg;
+    const iTurned = firstIndex(S, 0, S.length, s => Math.abs(n180(s.hdg - h0)) > 45);
+    if (iTurned < 0) { res.summary = 'No turn onto the arc.'; return res; }
+    let iJoin = iTurned;
+    while (iJoin > 0 && Math.abs(S[iJoin - 1].bank) > 3) iJoin--;
+    res.join = { dmeStart: S[iJoin].dme, radStart: S[iJoin].rad };
+    const iRoll = firstIndex(S, iJoin, S.length, s => Math.abs(n180(s.trk - arcTangent(s.rad, A.dir))) < 5);
+    if (iRoll >= 0) { res.join.dmeRoll = S[iRoll].dme; res.join.errRoll = S[iRoll].dme - A.R; }
+    let iEnd = firstIndex(S, iRoll < 0 ? iJoin : iRoll, S.length, s => prog(s) >= 0);
+    if (A.exitCourse != null) {
+      const iOnFinal = firstIndex(S, iRoll < 0 ? iJoin : iRoll, S.length, s => Math.abs(n180(s.hdg - A.exitCourse)) < 25);
+      if (iOnFinal >= 0) {
+        let iExit = iOnFinal;
+        while (iExit > 0 && Math.abs(S[iExit - 1].bank) > 3) iExit--;
+        res.exit = { radStart: S[iExit].rad };
+        iEnd = iExit;
+        const iR2 = firstIndex(S, iOnFinal, S.length, s => Math.abs(s.bank) < 3);
+        if (iR2 >= 0) {
+          let mx = 0;
+          for (let i = iR2; i < S.length; i++) {
+            if (S[i].dme < 9.5) break;
+            mx = Math.max(mx, Math.abs(cdi(A.exitCourse, st, S[i].x, S[i].y).dev));
+          }
+          res.exit.rollDev = cdi(A.exitCourse, st, S[iR2].x, S[iR2].y).dev;
+          res.exit.finalMaxDev = mx;
+          res.exit.ok = mx <= TOL.inboundDeg;
+        }
+      }
+    }
+    const from = iRoll < 0 ? iJoin : iRoll;
+    const to = iEnd < 0 ? S.length : iEnd;
+    let mx = 0, ss = 0, n = 0, inside = 0;
+    for (let i = from; i < to; i++) {
+      const e = S[i].dme - A.R; mx = Math.max(mx, Math.abs(e)); ss += e * e; n++;
+      if (Math.abs(e) <= TOL.arcNm) inside++;
+    }
+    res.arc = { maxErr: n ? mx : null, rmsErr: n ? Math.sqrt(ss / n) : null, pctInside: n ? 100 * inside / n : null,
+      reachedEnd: iEnd >= 0, ok: n > 0 && mx <= TOL.arcNm };
+    res.idealJoin = arcJoinLead(sc, sc.start);
+    if (A.exitCourse != null) res.idealExit = arcExitLead(sc);
+    return res;
+  }
+
+  return { n360, n180, clamp, mulberry32, isa, tasFromCas, turnRate, rateOneBank, holdingBank, rateOneLimitTas,
+    turnRadiusNm, windVec, headingForTrack, makeAircraft, setBug, step, radialOf, dmeSlant, cdi, pointFromRadial,
+    holdFrame, holdCoords, entrySector, outboundCourse, offsetCourse, buildScenario, newRun, advance, sampleOf,
+    passages, classifyEntry, simCircuit, idealOutboundHeading, idealHold, arcTangent, arcJoinLead, arcExitLead,
+    analyzeHold, analyzeArc, TOL, DT, SAMPLE, ROLL_RATE, WIND_LEVELS };
+});
+
+</script>
+<script>
+const DATA = {"sources":{"OM-B3":"ALS Operations Manual Part B3, SOP DHC8-102/103/106 (Ed 001 Rev 001)","ENR15-MY":"Malaysia AIP ENR 1.5 (eAIP 19 MAY 2026), states conformity with ICAO Doc 8168","JEPP":"Jeppesen terminal charts, cycle 13-2026 (printed 28 Jun 2026)","PHYS":"Flight mechanics, computed by the engine (not a published rule)","UNSOURCED":"Not found in the sources provided; check against Doc 8168 Vol I or your ATPL text"},"rules":[{"id":"speed","text":"Holds and procedure turns flown clean at 150 KIAS","src":"OM-B3","ref":"Sec 5, 5.13, p5-9"},{"id":"bank","text":"Bank in holding not more than 25°, otherwise rate 1 (3°/s); the lesser bank applies","src":"ENR15-MY","ref":"1.5.1.1.6"},{"id":"abnormalBank","text":"Bank over 30° not briefed is abnormal bank","src":"OM-B3","ref":"Sec 0, 0.10, p0-21"},{"id":"timing","text":"Outbound timing starts abeam the fix; 1 min up to FL140, 1.5 min above","src":"ENR15-MY","ref":"1.5.1.2.3"},{"id":"parallel","text":"Sector 1 (parallel): at the fix turn onto the outbound heading for the set time, then turn toward the holding side to intercept the inbound track or return to the fix","src":"ENR15-MY","ref":"1.5.1.3.1.1"},{"id":"offset","text":"Sector 2 (offset): at the fix turn onto a track 30° or less from the inbound reciprocal on the holding side, fly the set time, then turn to intercept the inbound track","src":"ENR15-MY","ref":"1.5.1.3.1.2"},{"id":"direct","text":"Sector 3 (direct): at the fix turn toward the holding side and follow the pattern","src":"ENR15-MY","ref":"1.5.1.3.1.3"},{"id":"sectors70","text":"Sector boundaries: the inbound track and a line at 70° to it through the fix, with ±5° flexibility at the boundaries","src":"UNSOURCED","ref":"Doc 8168 Vol I figure, not in the free text"},{"id":"vordme","text":"VOR/DME holding: outbound leg ends at a DME distance; sectors 1 and 2 not authorised, enter along the entry radial or by sector 3","src":"ENR15-MY","ref":"1.5.1.3.2.1"},{"id":"wind","text":"Holding areas assume winds up to 60 kt and TAS 90 to 250 kt; pilots correct for wind","src":"ENR15-MY","ref":"1.5.1.1.7"},{"id":"fuel","text":"Holding fuel flow 900 PPH, 2 engines, clean, 900 RPM","src":"OM-B3","ref":"Sec 7, p7-4"},{"id":"bearing","text":"At least one bearing pointer set to the navaid for the procedure being flown","src":"OM-B3","ref":"Sec 1, p1-17"},{"id":"roll","text":"Roll rate 5°/s in heading mode","src":"UNSOURCED","ref":"Model assumption, not from the AFM"},{"id":"arcLead","text":"Lead distances and lead radials for arcs come from turn radius at the governing bank","src":"PHYS","ref":"r = V²/(g·tan φ)"},{"id":"tolerances","text":"Pass marks: inbound ±5°, outbound time ±10 s, DME limit ±0.3 NM, arc ±1.0 NM","src":"UNSOURCED","ref":"Provisional until the KCAA IR skill test tolerances are added"}],"procedures":[{"id":"nv-vor","kind":"hold","group":"Hold over a navaid","title":"NV VOR","place":"Nairobi JKIA","icao":"HKJK","plate":"13-2 VOR DME Rwy 24 (26 APR 24)","station":{"ident":"NV","freq":"113.1","elevFt":5330},"varE":1,"hold":{"fix":{"type":"navaid","name":"NV"},"inbound":53,"turn":"R","altFt":10000,"altLabel":"FL100","maxIas":null},"start":{"type":"random","dist":8}},{"id":"mov-vor","kind":"hold","group":"Hold over a navaid","title":"MOV VOR","place":"Mombasa","icao":"HKMO","plate":"13-2 VOR DME Rwy 21 (19 APR 24)","station":{"ident":"MOV","freq":"112.3","elevFt":200},"varE":-1,"hold":{"fix":{"type":"navaid","name":"MOV"},"inbound":30,"turn":"R","altFt":4000,"altLabel":"4000 ft (MHA)","maxIas":null},"start":{"type":"random","dist":8}},{"id":"kiv-vor","kind":"hold","group":"Hold over a navaid","title":"KIV VOR","place":"Kisumu","icao":"HKKI","plate":"13-1 VOR DME Rwy 06 (13 DEC 24)","station":{"ident":"KIV","freq":"114.1","elevFt":3795},"varE":1,"hold":{"fix":{"type":"navaid","name":"KIV"},"inbound":245,"turn":"L","altFt":9000,"altLabel":"FL090","maxIas":230},"start":{"type":"random","dist":8}},{"id":"ads-vor","kind":"hold","group":"Hold over a navaid","title":"ADS VOR","place":"Addis Ababa","icao":"HAAB","plate":"13-1 VOR DME Rwy 25L (11 JUL 25)","station":{"ident":"ADS","freq":"112.9","elevFt":7625},"varE":2,"hold":{"fix":{"type":"navaid","name":"ADS"},"inbound":90,"turn":"R","altFt":14000,"altLabel":"14000 ft","maxIas":null},"start":{"type":"random","dist":8}},{"id":"d117o","kind":"hold","group":"Hold at a fix","title":"D117O (KIV R-117 D15)","place":"Kisumu","icao":"HKKI","plate":"13-2 VOR DME Rwy 24 (13 DEC 24)","station":{"ident":"KIV","freq":"114.1","elevFt":3795},"varE":1,"hold":{"fix":{"type":"dme","name":"D117O","radial":117,"dme":15},"inbound":297,"turn":"L","altFt":9000,"altLabel":"FL090","maxIas":200},"start":{"type":"random","dist":7}},{"id":"unbad","kind":"hold","group":"Hold at a fix","title":"UNBAD (DTI R-269 D5)","place":"Djibouti","icao":"HDAM","plate":"13-1 VOR Rwy 09 (15 DEC 23)","station":{"ident":"DTI","freq":"113.9","elevFt":49},"varE":2,"hold":{"fix":{"type":"dme","name":"UNBAD","radial":269,"dme":5},"inbound":89,"turn":"L","altFt":3700,"altLabel":"3700 ft (MHA)","maxIas":230},"start":{"type":"random","dist":7}},{"id":"okmer","kind":"hold","group":"Hold at a fix","title":"OKMER (DTI R-089 D8), DME hold","place":"Djibouti","icao":"HDAM","plate":"13-2 VOR Rwy 27 (15 DEC 23)","station":{"ident":"DTI","freq":"113.9","elevFt":49},"varE":2,"hold":{"fix":{"type":"dme","name":"OKMER","radial":89,"dme":8},"inbound":269,"turn":"R","altFt":1700,"altLabel":"1700 ft (MHA)","maxIas":230,"dmeLimit":13,"entryAlongInboundOnly":true},"start":{"type":"radial","radial":89,"dme":16,"heading":269}},{"id":"kiv-arc","kind":"arc","group":"DME arc","title":"KIV 15 DME arc to final 238°","place":"Kisumu","icao":"HKKI","plate":"13-2 VOR DME Rwy 24 (13 DEC 24)","station":{"ident":"KIV","freq":"114.1","elevFt":3795},"varE":1,"arc":{"radius":15,"startRadial":117,"endRadial":58,"dir":"CCW","altFt":8000,"altLabel":"8000 ft","join":"Inbound on R-117 to D117O, then turn right onto the arc","exitCourse":238,"exitLabel":"Final 238° to FD24 (D9.5)","endNote":"IF CD24 = R-058 D15.0"},"start":{"type":"radial","radial":117,"dme":19,"heading":297}},{"id":"dti-10-arc","kind":"arc","group":"DME arc","title":"DTI 10 DME arc (missed apch Rwy 09)","place":"Djibouti","icao":"HDAM","plate":"13-1 VOR Rwy 09 (15 DEC 23)","station":{"ident":"DTI","freq":"113.9","elevFt":49},"varE":2,"arc":{"radius":10,"startRadial":null,"endRadial":303,"dir":"CCW","altFt":3700,"altLabel":"3700 ft","join":"From D5.0 on R-089, heading 329° to join the 10 DME arc","exitCourse":null,"endNote":"The plate shows the arc as \"or as directed\"; the run ends at about R-303, where the drawn arc ends"},"start":{"type":"radial","radial":89,"dme":5,"heading":329}},{"id":"dti-13-arc","kind":"arc","group":"DME arc","title":"DTI 13 DME arc (missed apch Rwy 27)","place":"Djibouti","icao":"HDAM","plate":"13-2 VOR Rwy 27 (15 DEC 23)","station":{"ident":"DTI","freq":"113.9","elevFt":49},"varE":2,"arc":{"radius":13,"startRadial":null,"endRadial":6,"dir":"CW","altFt":3700,"altLabel":"3700 ft","join":"From D4.5 on R-269, heading 326° to join the 13 DME arc","exitCourse":null,"endNote":"The plate shows the arc as \"or as directed\"; the run ends at about R-006, where the drawn arc ends"},"start":{"type":"radial","radial":269,"dme":4.5,"heading":326}}]};
+const TESTS = { "when": "2026-10-27T14:48:46.743Z", "passed": 20, "total": 20, "results": [ { "group": "Physics", "name": "TAS equals CAS at sea level ISA", "pass": true, "detail": "", "ms": 0 }, { "group": "Physics", "name": "TAS matches an independent density-ratio estimate (ISA to ISA+20, 0 to 14000 ft)", "pass": true, "detail": "worst difference 0.44%", "ms": 1 }, { "group": "Physics", "name": "Rate one and 25° bank meet at about 170 kt TAS", "pass": true, "detail": "crossover 169.8 kt", "ms": 0 }, { "group": "Physics", "name": "A full turn at constant bank closes and matches r = V²/(g·tan φ) (200 random cases)", "pass": true, "detail": "radius within 0.00%, closes within 2 ft", "ms": 537 }, { "group": "Physics", "name": "The heading model never exceeds the holding bank limit (300 random bug changes)", "pass": true, "detail": "bank stayed at or below min(25°, rate one); heading settled on the bug every time", "ms": 161 }, { "group": "Physics", "name": "Winding the bug the long way turns the long way; a small opposite nudge does not reverse the turn", "pass": true, "detail": "250° right turn completed through the nudge", "ms": 1 }, { "group": "Navigation", "name": "Wind triangle: flying the computed heading holds the track (2000 random cases)", "pass": true, "detail": "track and ground speed exact to 1e-6", "ms": 8 }, { "group": "Navigation", "name": "CDI needle points toward the course from either side, TO and FROM (2000 random cases)", "pass": true, "detail": "right of course gives needle left, left of course gives needle right", "ms": 8 }, { "group": "Navigation", "name": "DME is slant range: never less than ground distance, equal at station elevation", "pass": true, "detail": "D117O at FL090 sits 0.024 NM inside 15 NM ground distance", "ms": 3 }, { "group": "Entry sectors", "name": "Engine and an independent vector construction agree for all 360 headings, every hold, both turn directions", "pass": true, "detail": "5040 cases agree", "ms": 22 }, { "group": "Entry sectors", "name": "Worked examples (right-hand inbound 360°, and its left-hand mirror)", "pass": true, "detail": "14 examples", "ms": 0 }, { "group": "Whole scenarios", "name": "Ideal pilot: analyser identifies every entry and times each circuit (70 random scenarios, all holds, all wind levels)", "pass": true, "detail": "70 scenarios (direct 38, offset 10, parallel 22); worst timing error 1.0 s, worst inbound needle 0.6°, worst DME limit error 0.05 NM; 0 inbound legs too short to judge", "ms": 62358 }, { "group": "Whole scenarios", "name": "A wrong entry is caught: parallel flown from the direct sector, direct flown from the parallel sector", "pass": true, "detail": "24/24 wrong entries flagged", "ms": 27362 }, { "group": "Whole scenarios", "name": "Same seed and same inputs give an identical flight (determinism)", "pass": true, "detail": "1744 samples identical", "ms": 1278 }, { "group": "Whole scenarios", "name": "Ideal pilot on all three arcs in four wind levels: join, arc and exit measured", "pass": true, "detail": "24 flights; worst DME error at join roll-out 0.02 NM, on the arc 0.03 NM, on final 0.1°", "ms": 1338 }, { "group": "Wind correction", "name": "Calm air: ideal outbound heading is the outbound course and the inbound leg is about 1 min", "pass": true, "detail": "all timed holds", "ms": 3375 }, { "group": "Wind correction", "name": "Crosswind: outbound correction is 2 to 4 times the drift, the classic \"triple drift\" (60 cases)", "pass": true, "detail": "correction was 2.8× to 3.4× the drift angle", "ms": 21206 }, { "group": "Wind correction", "name": "Arc lead: in calm air a 90° join leads by about one turn radius, and the exit lead radial matches r/R", "pass": true, "detail": "turn radius 0.90 NM; join lead 0.99 NM; exit lead 4.2° (r/R = 3.4°)", "ms": 15 }, { "group": "Plate data", "name": "Every fix lands on its symbol on the Jeppesen plan view (within 0.5 NM)", "pass": true, "detail": "27 fixes on 7 charts; worst 0.40 NM", "ms": 1 }, { "group": "Plate data", "name": "Flat local frame agrees with the WGS-84 ellipsoid (Vincenty) at these distances", "pass": true, "detail": "worst 0.0 ft over 6 fix pairs; Vincenty reproduces the Flinders Peak–Buninyong example", "ms": 0 } ] };
+const PLATES = {"plates":[{"chart":"HKKI 13-1","fix":"D2.5","pred":[966,680],"read":[965,680],"errNm":0.03,"pass":true},{"chart":"HKKI 13-1","fix":"MD06 D1.5","pred":[806,752],"read":[806,750],"errNm":0.04,"pass":true},{"chart":"HKKI 13-1","fix":"FD06 D8.5","pred":[525,877],"read":[525,875],"errNm":0.04,"pass":true},{"chart":"HKKI 13-2","fix":"D117O","pred":[1111,1117],"read":[1118,1107],"errNm":0.28,"pass":true},{"chart":"HKKI 13-2","fix":"CD24 D15.0","pred":[1094,469],"read":[1098,470],"errNm":0.09,"pass":true},{"chart":"HKKI 13-2","fix":"FD24 D9.5","pred":[887,593],"read":[890,595],"errNm":0.07,"pass":true},{"chart":"HKKI 13-2","fix":"79VOR D7.9","pred":[827,629],"read":[830,630],"errNm":0.06,"pass":true},{"chart":"HKKI 13-2","fix":"MD24 D1.7","pred":[594,770],"read":[595,770],"errNm":0.03,"pass":true},{"chart":"HKKI 13-2","fix":"D7.3","pred":[255,973],"read":[258,972],"errNm":0.07,"pass":true},{"chart":"HKJK 13-2","fix":"FD24 D8.0","pred":[876,576],"read":[876,575],"errNm":0.01,"pass":true},{"chart":"HKJK 13-2","fix":"D3.4","pred":[471,870],"read":[472,866],"errNm":0.09,"pass":true},{"chart":"HKMO 13-2","fix":"FD21 D5.0","pred":[848,538],"read":[848,537],"errNm":0.03,"pass":true},{"chart":"HKMO 13-2","fix":"RW21 D4.4","pred":[649,899],"read":[648,898],"errNm":0.02,"pass":true},{"chart":"HAAB 13-1","fix":"AB888 D13.0","pred":[1038,588],"read":[1040,590],"errNm":0.07,"pass":true},{"chart":"HAAB 13-1","fix":"FD25L D7.0","pred":[790,673],"read":[792,677],"errNm":0.1,"pass":true},{"chart":"HAAB 13-1","fix":"5ØVOR D5.0","pred":[707,702],"read":[709,703],"errNm":0.05,"pass":true},{"chart":"HAAB 13-1","fix":"MD25L D2.5","pred":[604,737],"read":[606,739],"errNm":0.07,"pass":true},{"chart":"HDAM 13-1","fix":"UNBAD D5.0","pred":[531,911],"read":[522,915],"errNm":0.21,"pass":true},{"chart":"HDAM 13-1","fix":"D7.0 (R-302)","pred":[495,743],"read":[497,745],"errNm":0.06,"pass":true},{"chart":"HDAM 13-1","fix":"RW09 D3.0","pred":[882,917],"read":[880,918],"errNm":0.04,"pass":true},{"chart":"HDAM 13-1","fix":"D5.0 (R-089)","pred":[969,919],"read":[970,920],"errNm":0.03,"pass":true},{"chart":"HDAM 13-2","fix":"OKMER D8.0","pred":[862,862],"read":[860,858],"errNm":0.15,"pass":true},{"chart":"HDAM 13-2","fix":"FD27Z D9.7","pred":[912,863],"read":[912,860],"errNm":0.1,"pass":true},{"chart":"HDAM 13-2","fix":"IF D13.0","pred":[1008,865],"read":[1008,862],"errNm":0.09,"pass":true},{"chart":"HDAM 13-2","fix":"D13.0 (R-071)","pred":[992,747],"read":[995,758],"errNm":0.4,"pass":true},{"chart":"HDAM 13-2","fix":"MD27 D5.0","pred":[774,861],"read":[775,858],"errNm":0.09,"pass":true},{"chart":"HDAM 13-2","fix":"D4.5 (R-269)","pred":[496,856],"read":[493,855],"errNm":0.12,"pass":true}],"vincenty":{"rows":[{"station":"KIV","from":"R-117 D15.0","to":"R-058 D15.0","flatNm":14.773,"ellipsoidNm":14.773,"dNm":0,"dDeg":0},{"station":"KIV","from":"R-058 D15.0","to":"R-058 D9.5","flatNm":5.5,"ellipsoidNm":5.5,"dNm":0,"dDeg":0},{"station":"DTI","from":"R-089 D8.0","to":"R-071 D13.0","flatNm":5.931,"ellipsoidNm":5.931,"dNm":0,"dDeg":0.027},{"station":"DTI","from":"R-269 D5.0","to":"R-302 D7.0","flatNm":3.911,"ellipsoidNm":3.911,"dNm":0,"dDeg":0.017},{"station":"NV","from":"R-053 D8.0","to":"R-233 D3.4","flatNm":11.4,"ellipsoidNm":11.4,"dNm":0,"dDeg":0.002},{"station":"ADS","from":"R-069 D13.0","to":"R-092 D13.0","flatNm":5.184,"ellipsoidNm":5.184,"dNm":0,"dDeg":0.032}],"worstNm":0,"pass":true,"selfTest":{"distM":54972.271,"expectM":54972.271,"azDeg":306.868159,"expectAz":306.868159,"pass":true}}};
+</script>
+<script>
+(function () {
+  'use strict';
+  const E = window.IFR;
+  const D2R = Math.PI / 180;
+  const $ = id => document.getElementById(id);
+  const pad3 = v => String(Math.round(E.n360(v)) % 360 || 360).padStart(3, '0');
+  const fmtT = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const SRC = { 'OM-B3': 'OM B3', 'ENR15-MY': 'ENR 1.5 (MY)', 'JEPP': 'Jeppesen', 'PHYS': 'Computed', 'UNSOURCED': 'Unsourced' };
+  const RULE = Object.fromEntries(DATA.rules.map(r => [r.id, r]));
+  const cite = id => { const r = RULE[id]; if (!r) return ''; return `<span class="cite${r.src === 'UNSOURCED' ? ' uns' : ''}">${SRC[r.src]} ${r.ref}</span>`; };
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } }
+  };
+
+  /* ---------- state ---------- */
+  const S = {
+    procId: store.get('procId', 'nv-vor'), wind: store.get('wind', 'moderate'), seed: 0,
+    sc: null, run: null, running: false, started: false, finished: false, speed: 1,
+    crs: 0, chrono: { on: false, acc: 0, t0: 0 }, acc: 0, rnavOn: false, lastFrame: 0, analysis: null
+  };
+
+  /* ---------- procedure list ---------- */
+  function renderProcList() {
+    const groups = {};
+    DATA.procedures.forEach(p => { (groups[p.group] = groups[p.group] || []).push(p); });
+    const html = Object.entries(groups).map(([g, ps]) => `<h3 class="group-h">${g}</h3>` + ps.map(p => {
+      const lvl = p.kind === 'hold' ? p.hold.altLabel : p.arc.altLabel;
+      return `<button class="proc" data-proc="${p.id}" aria-pressed="${p.id === S.procId}"><span class="t">${p.title}</span><span class="lvl">${lvl}</span><span class="s">${p.place} · ${p.icao} ${p.plate}</span></button>`;
+    }).join('')).join('');
+    $('procList').innerHTML = html;
+    $('procList').querySelectorAll('.proc').forEach(b => b.addEventListener('click', () => { S.procId = b.dataset.proc; store.set('procId', S.procId); newScenario(); renderProcList(); }));
+  }
+
+  /* ---------- scenario ---------- */
+  function newScenario(seed) {
+    const proc = DATA.procedures.find(p => p.id === S.procId) || DATA.procedures[0];
+    S.seed = seed || (1 + Math.floor(Math.random() * 999999));
+    S.sc = E.buildScenario(proc, { seed: S.seed, wind: S.wind });
+    S.run = E.newRun(S.sc);
+    S.running = false; S.started = false; S.finished = false; S.acc = 0; S.analysis = null;
+    S.chrono = { on: false, acc: 0, t0: 0 };
+    S.crs = proc.kind === 'hold' ? proc.hold.inbound : (proc.id === 'kiv-arc' ? 297 : proc.start.radial);
+    S.rnavOn = proc.kind === 'hold' && proc.hold.fix.type === 'dme';
+    renderBrief();
+    resetDebrief();
+    updateButtons();
+    draw();
+  }
+  function renderBrief() {
+    const sc = S.sc, p = sc.proc, env = sc.env;
+    $('procLine').textContent = `${p.place} · ${p.icao} ${p.plate}`;
+    $('seedLine').textContent = `Scenario ${S.seed}`;
+    const wind = env.windKt === 0 ? 'calm' : `${pad3(env.windFrom)}°/${env.windKt} kt`;
+    const showWind = $('tgWind').checked;
+    let clr;
+    if (p.kind === 'hold') {
+      const H = p.hold;
+      const fix = H.fix.type === 'navaid' ? `${H.fix.name} VOR` : `${H.fix.name} (${p.station.ident} R-${pad3(H.fix.radial)} D${H.fix.dme.toFixed(1)})`;
+      clr = `Hold at ${fix}, inbound ${pad3(H.inbound)}°, ${H.turn === 'R' ? 'right' : 'left'} turns, ${H.altLabel}.`;
+      if (H.dmeLimit) clr += ` Outbound limit D${H.dmeLimit.toFixed(1)}.`;
+      clr += H.fix.type === 'dme' && !H.entryAlongInboundOnly ? ` Cleared direct ${H.fix.name}.` : '';
+      if (H.entryAlongInboundOnly) clr += ` Arriving on R-${pad3(p.start.radial)} inbound.`;
+    } else {
+      const A = p.arc;
+      clr = `${A.join}. ${A.dir === 'CW' ? 'Clockwise' : 'Counter-clockwise'}, ${A.altLabel}.` + (A.exitCourse != null ? ` ${A.exitLabel}.` : '');
+    }
+    $('clearance').textContent = clr;
+    const isaTxt = `ISA${env.isaDev ? '+' + env.isaDev : ''}`;
+    const gov = sc.governs === 'bank25' ? `25° bank governs (rate one would need ${E.rateOneBank(sc.tas).toFixed(0)}°)` : `rate one governs at ${sc.bankLimit.toFixed(0)}° bank`;
+    $('briefMeta').innerHTML = `${p.station.ident} ${p.station.freq} · ${showWind ? 'Forecast wind ' + wind : 'Wind not given: work it out from drift'} · ${isaTxt} · TAS <span class="num">${sc.tas.toFixed(0)}</span> kt · ${gov} ${cite('bank')}`;
+    let tech = '';
+    if (p.kind === 'hold') {
+      const lt = sc.hold.legTime;
+      tech = sc.hold.dmeLimit ? `Outbound ends at D${sc.hold.dmeLimit.toFixed(1)} ${cite('vordme')}` : `Outbound ${lt / 60} min, timed from abeam the fix ${cite('timing')}`;
+      if (sc.hold.fixType === 'dme') tech += ` · RNAV pointer (magenta) to the fix until you first cross it, then raw VOR/DME only`;
+      tech += ` · Holding fuel 900 PPH ${cite('fuel')}`;
+    } else {
+      tech = `Lead the turns by your turn radius, ${E.turnRadiusNm(sc.tas, sc.bankLimit).toFixed(2)} NM at this TAS. ${p.arc.endNote}.`;
+    }
+    $('briefTech').innerHTML = tech;
+    $('dmeId').textContent = p.station.ident;
+  }
+
+  /* ---------- controls ---------- */
+  function bump(which, d) {
+    if (S.finished) return;
+    if (which === 'h') { E.setBug(S.run.ac, S.run.ac.bug + d, Math.sign(d)); }
+    else S.crs = E.n360(S.crs + d);
+    if (!S.started) start();
+    draw();
+  }
+  [['h', -10], ['h', -1], ['h', 1], ['h', 10], ['c', -10], ['c', -1], ['c', 1], ['c', 10]].forEach(([w, d]) => {
+    const id = w + (d > 0 ? '+' : '-') + Math.abs(d);
+    const el = $(id);
+    let rpt = null;
+    const fire = () => bump(w, d);
+    el.addEventListener('pointerdown', e => { e.preventDefault(); fire(); rpt = setTimeout(function rr() { fire(); rpt = setTimeout(rr, 90); }, 380); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { clearTimeout(rpt); rpt = null; }));
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); } });
+  });
+  function start() { S.started = true; S.running = true; S.lastFrame = performance.now(); updateButtons(); }
+  $('runBtn').addEventListener('click', () => {
+    if (S.finished) { newScenario(S.seed); return; }
+    if (!S.started) start(); else { S.running = !S.running; S.lastFrame = performance.now(); updateButtons(); }
+  });
+  $('chronoBtn').addEventListener('click', toggleChrono);
+  $('chronoReset').addEventListener('click', () => { S.chrono = { on: false, acc: 0, t0: S.run.ac.t }; updateButtons(); drawReadouts(); });
+  function toggleChrono() {
+    const c = S.chrono, t = S.run.ac.t;
+    if (c.on) { c.acc += t - c.t0; c.on = false; } else { c.t0 = t; c.on = true; }
+    updateButtons();
+  }
+  document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => {
+    S.speed = +b.dataset.speed;
+    document.querySelectorAll('[data-speed]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+  document.querySelectorAll('[data-wind]').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.wind === S.wind));
+    b.addEventListener('click', () => {
+      S.wind = b.dataset.wind; store.set('wind', S.wind);
+      document.querySelectorAll('[data-wind]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      newScenario();
+    });
+  });
+  $('tgWind').addEventListener('change', renderBrief);
+  $('tgMap').addEventListener('change', draw);
+  $('newBtn').addEventListener('click', () => newScenario());
+  $('randomBtn').addEventListener('click', () => {
+    const ps = DATA.procedures; S.procId = ps[Math.floor(Math.random() * ps.length)].id; store.set('procId', S.procId);
+    renderProcList(); newScenario();
+  });
+  $('finishBtn').addEventListener('click', finish);
+  document.addEventListener('keydown', e => {
+    if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    const big = e.shiftKey ? 10 : 1;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); bump('h', -big); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); bump('h', big); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); bump('c', big); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); bump('c', -big); }
+    else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); toggleChrono(); }
+    else if (e.key === 'p' || e.key === 'P') { if (S.started && !S.finished) { S.running = !S.running; S.lastFrame = performance.now(); updateButtons(); } }
+  });
+  function updateButtons() {
+    $('runBtn').textContent = S.finished ? 'Fly it again' : !S.started ? 'Start' : S.running ? 'Pause' : 'Resume';
+    $('finishBtn').disabled = !S.started || S.finished;
+    $('chronoBtn').textContent = S.chrono.on ? 'Chrono stop' : 'Chrono start';
+  }
+
+  /* ---------- simulation loop ---------- */
+  function frame(now) {
+    if (S.running && !S.finished) {
+      const dt = Math.min(0.25, (now - S.lastFrame) / 1000) * S.speed;
+      S.acc += dt;
+      const n = Math.floor(S.acc / E.DT);
+      if (n > 0) { E.advance(S.run, n * E.DT); S.acc -= n * E.DT; }
+      checkAuto();
+      draw();
+    }
+    S.lastFrame = now;
+    requestAnimationFrame(frame);
+  }
+  function checkAuto() {
+    const sc = S.sc, ac = S.run.ac;
+    if (S.rnavOn && sc.hold && Math.hypot(ac.x - sc.hold.fx, ac.y - sc.hold.fy) < 0.15) S.rnavOn = false;
+    if (S.rnavOn && sc.hold) {
+      const smp = S.run.samples;
+      if (smp.length > 3) { const a = smp[smp.length - 3], b = smp[smp.length - 2], c = smp[smp.length - 1];
+        if (b.dfix < 1.0 && b.dfix <= a.dfix && c.dfix > b.dfix) S.rnavOn = false; }
+    }
+    if (sc.arc) {
+      const rad = E.radialOf(sc.station, ac.x, ac.y), dme = E.dmeSlant(sc.station, ac.x, ac.y, sc.altFt);
+      if (sc.arc.exitCourse != null) { if (dme < 9.0 && Math.abs(E.n180(rad - E.n360(sc.arc.exitCourse + 180))) < 15) finish(); }
+      else if (Math.abs(dme - sc.arc.R) < 2.5 && E.n180(rad - sc.arc.endRadial) * sc.arc.dir > 4) finish();
+    }
+    if (ac.t > 1800) finish();
+  }
+
+  /* ---------- drawing ---------- */
+  const cv = {};
+  function fitCanvas(id) {
+    const c = $(id), r = c.getBoundingClientRect(), dpr = Math.min(3, window.devicePixelRatio || 1);
+    const w = Math.max(200, Math.round(r.width)), h = Math.round(w * (+c.getAttribute('height') / +c.getAttribute('width')));
+    if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+    const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w, h };
+  }
+  const COL = () => {
+    const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+    return { scr: g('--scr'), line: g('--scr-line'), white: g('--e-white'), cyan: g('--e-cyan'), green: g('--e-green'), mag: g('--e-mag'), amber: g('--e-amber'), sky: g('--e-sky'), gnd: g('--e-gnd'),
+      ink: g('--ink'), muted: g('--muted'), lineUi: g('--line'), accent: g('--accent'), ok: g('--ok'), warn: g('--warn'), bad: g('--bad'), raised: g('--raised') };
+  };
+  let C = COL();
+  window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { C = COL(); draw(); if (S.analysis) drawMap(); });
+  new MutationObserver(() => { C = COL(); draw(); if (S.analysis) drawMap(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  function draw() {
+    if (!S.run) return;
+    drawEADI(); drawEHSI(); drawReadouts();
+    $('hdgVal').textContent = pad3(S.run.ac.bug);
+    $('crsVal').textContent = pad3(S.crs);
+  }
+  function drawReadouts() {
+    const ac = S.run.ac, st = S.sc.station;
+    $('roDme').textContent = E.dmeSlant(st, ac.x, ac.y, ac.alt).toFixed(1);
+    $('roGs').textContent = Math.round(ac.gs);
+    const c = S.chrono, t = c.acc + (c.on ? ac.t - c.t0 : 0);
+    $('roChrono').textContent = fmtT(t);
+  }
+  function drawEADI() {
+    const { ctx, w, h } = fitCanvas('eadi'), ac = S.run.ac;
+    ctx.fillStyle = C.scr; ctx.fillRect(0, 0, w, h);
+    const cx = w / 2, cy = h * 0.56, R = Math.min(w * 0.36, h * 0.8);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+    ctx.translate(cx, cy); ctx.rotate(-ac.bank * D2R);
+    ctx.fillStyle = C.sky; ctx.fillRect(-2 * R, -2 * R, 4 * R, 2 * R);
+    ctx.fillStyle = C.gnd; ctx.fillRect(-2 * R, 0, 4 * R, 2 * R);
+    ctx.strokeStyle = C.white; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-2 * R, 0); ctx.lineTo(2 * R, 0); ctx.stroke();
+    ctx.lineWidth = 1;
+    for (const p of [-10, -5, 5, 10]) { const y = -p * R / 25, l = Math.abs(p) === 10 ? R * 0.3 : R * 0.15; ctx.beginPath(); ctx.moveTo(-l, y); ctx.lineTo(l, y); ctx.stroke(); }
+    ctx.restore();
+    // bank scale (fixed), pointer rotates with roll
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.strokeStyle = C.white; ctx.lineWidth = 1.5;
+    for (const b of [-60, -45, -30, -20, -10, 10, 20, 30, 45, 60]) {
+      const a = (b - 90) * D2R, r1 = R + 2, r2 = R + (Math.abs(b) % 30 === 0 ? 12 : 7);
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2); ctx.stroke();
+    }
+    ctx.strokeStyle = C.cyan; ctx.lineWidth = 3;
+    for (const b of [-S.sc.bankLimit, S.sc.bankLimit]) { const a = (b - 90) * D2R; ctx.beginPath(); ctx.moveTo(Math.cos(a) * (R + 2), Math.sin(a) * (R + 2)); ctx.lineTo(Math.cos(a) * (R + 9), Math.sin(a) * (R + 9)); ctx.stroke(); }
+    ctx.fillStyle = C.white; ctx.beginPath(); ctx.moveTo(0, -R - 2); ctx.lineTo(-6, -R - 12); ctx.lineTo(6, -R - 12); ctx.closePath(); ctx.fill();
+    ctx.rotate(-ac.bank * D2R);
+    ctx.fillStyle = Math.abs(ac.bank) > 30 ? C.amber : C.white;
+    ctx.beginPath(); ctx.moveTo(0, -R + 2); ctx.lineTo(-7, -R + 13); ctx.lineTo(7, -R + 13); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // aircraft symbol
+    ctx.strokeStyle = C.amber; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - R * 0.55, cy); ctx.lineTo(cx - R * 0.18, cy); ctx.lineTo(cx - R * 0.1, cy + 8); ctx.moveTo(cx + R * 0.55, cy); ctx.lineTo(cx + R * 0.18, cy); ctx.lineTo(cx + R * 0.1, cy + 8); ctx.stroke();
+    ctx.fillStyle = C.amber; ctx.fillRect(cx - 3, cy - 3, 6, 6);
+    // side boxes
+    const f = s => `${s}px "B612 Mono", ui-monospace, monospace`;
+    const box = (x, label, val, sub) => {
+      ctx.fillStyle = '#000'; ctx.strokeStyle = C.white; ctx.lineWidth = 1;
+      ctx.fillRect(x, cy - 16, 62, 32); ctx.strokeRect(x, cy - 16, 62, 32);
+      ctx.fillStyle = C.white; ctx.font = f(17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(val, x + 31, cy + 1);
+      ctx.fillStyle = '#8aa0a6'; ctx.font = f(9); ctx.fillText(label, x + 31, cy - 25); if (sub) ctx.fillText(sub, x + 31, cy + 26);
+    };
+    box(6, 'IAS', String(S.sc.ias), 'TAS ' + Math.round(ac.tas));
+    const lab = S.sc.proc.kind === 'hold' ? S.sc.proc.hold.altLabel : S.sc.proc.arc.altLabel;
+    box(w - 68, 'ALT', String(ac.alt), lab.startsWith('FL') ? 'STD ' + lab : 'QNH ft');
+    ctx.fillStyle = C.green; ctx.font = f(10); ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('HDG', 8, 8);
+    ctx.fillStyle = Math.abs(ac.bank) > 30 ? C.amber : '#8aa0a6'; ctx.textAlign = 'right';
+    ctx.fillText(`BANK ${Math.abs(ac.bank).toFixed(0)}°`, w - 8, 8);
+  }
+  function drawEHSI() {
+    const { ctx, w, h } = fitCanvas('ehsi'), ac = S.run.ac, sc = S.sc, st = sc.station;
+    ctx.fillStyle = C.scr; ctx.fillRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2 + 8, R = w * 0.36;
+    const f = s => `${s}px "B612 Mono", ui-monospace, monospace`;
+    const rot = a => (a - ac.hdg) * D2R;
+    // rose
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.strokeStyle = C.white; ctx.fillStyle = C.white; ctx.lineWidth = 1.4;
+    for (let a = 0; a < 360; a += 5) {
+      const r = rot(a), l = a % 10 === 0 ? 12 : 6;
+      ctx.beginPath(); ctx.moveTo(Math.sin(r) * R, -Math.cos(r) * R); ctx.lineTo(Math.sin(r) * (R - l), -Math.cos(r) * (R - l)); ctx.stroke();
+      if (a % 30 === 0) {
+        ctx.save(); ctx.rotate(r); ctx.font = f(a % 90 === 0 ? 15 : 13); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText(a === 0 ? 'N' : a === 90 ? 'E' : a === 180 ? 'S' : a === 270 ? 'W' : String(a / 10), 0, -R + 15); ctx.restore();
+      }
+    }
+    // heading bug
+    ctx.save(); ctx.rotate(rot(ac.bug)); ctx.fillStyle = C.cyan;
+    ctx.fillRect(-9, -R - 2, 6, 10); ctx.fillRect(3, -R - 2, 6, 10); ctx.restore();
+    // bearing pointer to VOR (white, single)
+    const brg = E.n360(E.radialOf(st, ac.x, ac.y) + 180);
+    ctx.save(); ctx.rotate(rot(brg)); ctx.strokeStyle = C.white; ctx.fillStyle = C.white; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, -R + 30); ctx.lineTo(0, -R * 0.45); ctx.moveTo(0, R * 0.45); ctx.lineTo(0, R - 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -R + 26); ctx.lineTo(-7, -R + 40); ctx.lineTo(7, -R + 40); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // RNAV pointer to the fix (magenta, double)
+    if (S.rnavOn && sc.hold) {
+      const b2 = E.n360(Math.atan2(sc.hold.fx - ac.x, sc.hold.fy - ac.y) * 180 / Math.PI);
+      ctx.save(); ctx.rotate(rot(b2)); ctx.strokeStyle = C.mag; ctx.lineWidth = 1.6;
+      for (const dx of [-3, 3]) { ctx.beginPath(); ctx.moveTo(dx, -R + 34); ctx.lineTo(dx, -R * 0.5); ctx.moveTo(dx, R * 0.5); ctx.lineTo(dx, R - 34); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(0, -R + 26); ctx.lineTo(-8, -R + 40); ctx.lineTo(8, -R + 40); ctx.closePath(); ctx.stroke();
+      ctx.restore();
+    }
+    // course pointer and CDI
+    const c = E.cdi(S.crs, st, ac.x, ac.y);
+    ctx.save(); ctx.rotate(rot(S.crs)); ctx.strokeStyle = C.green; ctx.fillStyle = C.green; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(0, -R + 22); ctx.lineTo(0, -R * 0.36); ctx.moveTo(0, R * 0.36); ctx.lineTo(0, R - 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -R + 14); ctx.lineTo(-8, -R + 30); ctx.lineTo(8, -R + 30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = C.white;
+    for (const d of [-2, -1, 1, 2]) { ctx.beginPath(); ctx.arc(d * R * 0.16, 0, 3.2, 0, Math.PI * 2); ctx.stroke(); }
+    const dev = E.clamp(c.dev, -10, 10), off = dev / 5 * R * 0.16;
+    ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(off, -R * 0.33); ctx.lineTo(off, R * 0.33); ctx.stroke();
+    ctx.fillStyle = C.white; ctx.beginPath();
+    if (c.to) { ctx.moveTo(0, -R * 0.5); ctx.lineTo(-7, -R * 0.42); ctx.lineTo(7, -R * 0.42); } else { ctx.moveTo(0, R * 0.5); ctx.lineTo(-7, R * 0.42); ctx.lineTo(7, R * 0.42); }
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // aircraft symbol
+    ctx.strokeStyle = C.white; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(0, 16); ctx.moveTo(-14, -2); ctx.lineTo(14, -2); ctx.moveTo(-6, 12); ctx.lineTo(6, 12); ctx.stroke();
+    ctx.restore();
+    // lubber and heading box
+    ctx.fillStyle = '#000'; ctx.strokeStyle = C.white; ctx.lineWidth = 1.2;
+    ctx.fillRect(cx - 26, 6, 52, 24); ctx.strokeRect(cx - 26, 6, 52, 24);
+    ctx.fillStyle = C.white; ctx.font = f(17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(pad3(ac.hdg), cx, 18.5);
+    ctx.beginPath(); ctx.moveTo(cx, 30); ctx.lineTo(cx - 6, cy - R - 2); ctx.lineTo(cx + 6, cy - R - 2); ctx.closePath(); ctx.fill();
+    // corners
+    ctx.font = f(11); ctx.textBaseline = 'top';
+    ctx.textAlign = 'left'; ctx.fillStyle = C.green; ctx.fillText(`VOR1 ${st.ident}`, 8, 8);
+    ctx.fillStyle = C.white; ctx.fillText(`${E.dmeSlant(st, ac.x, ac.y, ac.alt).toFixed(1)} NM`, 8, 23);
+    ctx.textAlign = 'right'; ctx.fillStyle = C.green; ctx.fillText(`CRS ${pad3(S.crs)}`, w - 8, 8);
+    ctx.fillStyle = C.cyan; ctx.fillText(`HDG ${pad3(ac.bug)}`, w - 8, 23);
+    ctx.textBaseline = 'bottom'; ctx.textAlign = 'left';
+    if (S.rnavOn && sc.hold) { ctx.fillStyle = C.mag; ctx.fillText(`RNAV ${sc.hold.fixName} ${Math.hypot(sc.hold.fx - ac.x, sc.hold.fy - ac.y).toFixed(1)}`, 8, h - 6); }
+    else if (sc.hold && sc.hold.fixType === 'dme') { ctx.fillStyle = '#8aa0a6'; ctx.fillText('RNAV OFF: raw data', 8, h - 6); }
+    ctx.textAlign = 'right'; ctx.fillStyle = '#8aa0a6'; ctx.fillText(`${c.to ? 'TO' : 'FROM'}  R-${pad3(E.radialOf(st, ac.x, ac.y))}`, w - 8, h - 6);
+    if (!S.running && S.started && !S.finished) { ctx.fillStyle = C.amber; ctx.textAlign = 'center'; ctx.font = f(14); ctx.fillText('PAUSED', cx, h - 6); }
+    if ($('tgMap').checked) drawMiniMap(ctx, w, h);
+  }
+  function drawMiniMap(ctx, w, h) {
+    const sz = w * 0.3, x0 = w - sz - 6, y0 = h - sz - 26, sc = S.sc, ac = S.run.ac;
+    ctx.fillStyle = 'rgba(0,0,0,.75)'; ctx.strokeStyle = C.line; ctx.fillRect(x0, y0, sz, sz); ctx.strokeRect(x0, y0, sz, sz);
+    const cxm = sc.hold ? sc.hold.fx : 0, cym = sc.hold ? sc.hold.fy : 0, span = sc.hold ? 8 : sc.arc.R * 2.6;
+    const P = (x, y) => [x0 + sz / 2 + (x - cxm) / span * sz, y0 + sz / 2 - (y - cym) / span * sz];
+    ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, sz, sz); ctx.clip();
+    ctx.strokeStyle = C.cyan; ctx.lineWidth = 1.2; ctx.beginPath();
+    S.run.samples.forEach((s, i) => { const [x, y] = P(s.x, s.y); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+    const [sx, sy] = P(0, 0); ctx.fillStyle = C.green; ctx.fillRect(sx - 2, sy - 2, 4, 4);
+    if (sc.hold) { const [fx, fy] = P(sc.hold.fx, sc.hold.fy); ctx.strokeStyle = C.white; ctx.strokeRect(fx - 3, fy - 3, 6, 6); }
+    const [ax, ay] = P(ac.x, ac.y); ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(ax, ay, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  /* ---------- debrief ---------- */
+  function resetDebrief() {
+    $('debriefState').className = 'pill neutral'; $('debriefState').textContent = 'Not flown yet';
+    $('debrief').innerHTML = `<p class="empty">Fly the procedure, then tap <b>Finish and debrief</b>. ${S.sc.kind === 'hold' ? 'For a hold, fly the entry and two full circuits.' : 'The run finishes by itself at the end of the arc.'} You'll get your track, ${S.sc.kind === 'hold' ? 'the entry check, timing and needle numbers for each circuit' : 'where you led the turns and how far you strayed off the arc'}, and the heading that would have worked in this wind.</p>`;
+  }
+  function finish() {
+    if (S.finished || !S.started) return;
+    S.finished = true; S.running = false; updateButtons(); draw();
+    $('debriefState').className = 'pill neutral'; $('debriefState').textContent = 'Working it out…';
+    $('debrief').innerHTML = '<p class="empty">Working out the debrief. The ideal headings are found by flying this wind in the model, which takes a moment.</p>';
+    setTimeout(() => {
+      try {
+        S.analysis = S.sc.kind === 'hold' ? E.analyzeHold(S.run) : E.analyzeArc(S.run);
+        renderDebrief();
+      } catch (err) {
+        $('debrief').innerHTML = `<p class="empty">The debrief failed: ${String(err.message || err)}. Fly the scenario again with "Fly it again".</p>`;
+      }
+    }, 30);
+  }
+  const P = (ok, txt) => ok === null || ok === undefined ? `<span class="pill neutral">${txt || 'Not judged'}</span>` : `<span class="pill ${ok ? 'ok' : 'bad'}">${txt || (ok ? 'Within' : 'Outside')}</span>`;
+  const NAMES = { direct: 'direct', offset: 'offset (teardrop)', parallel: 'parallel', unclear: 'unclear' };
+  function renderDebrief() {
+    const a = S.analysis, sc = S.sc;
+    let html = `<div class="mapbox"><canvas id="map" width="600" height="420" aria-label="Flown track"></canvas><div class="legend" id="mapLegend"></div></div>`;
+    let pass = true, judged = 0;
+    if (a.kind === 'hold') {
+      const h = sc.hold;
+      if (!a.entry) { html += `<p class="empty">${a.summary || 'The fix was not reached.'}</p>`; pass = false; }
+      else {
+        const e = a.entry, sec = e.sector;
+        const side = sec.rel >= 0 ? 'toward the holding side' : 'toward the non-holding side';
+        const ok = e.ok; judged++; if (!ok) pass = false;
+        const allowed = sec.allowed.map(x => NAMES[x]).join(' or ');
+        html += `<div class="verdict"><div class="row"><h3>Entry</h3>${P(ok, ok ? 'Correct' : 'Wrong entry')}</div>
+          <p>You reached the fix on heading <span class="num">${pad3(e.hdgAtFix)}°</span>. From the inbound course (${pad3(h.inbound)}°) that is ${Math.abs(sec.rel).toFixed(0)}° ${side}, which calls for a <b>${allowed}</b> entry${sec.allowed.length > 1 ? ' (inside the ±5° flexibility zone)' : ''}. You flew <b>${NAMES[e.flown]}</b>${e.why ? ` (${e.why})` : ''}.
+          ${e.alongInboundOnly ? ` This is a VOR/DME hold, so the entry is along the inbound track only ${cite('vordme')}.` : ''}</p>
+          <p class="meta">${cite(sec.primary === 'parallel' ? 'parallel' : sec.primary === 'offset' ? 'offset' : 'direct')} ${cite('sectors70')}</p></div>`;
+        const done = a.circuits.filter(c => c.complete);
+        if (!done.length) html += `<p class="empty">No complete circuit after the entry. Fly the entry, then at least one full circuit back over the fix before finishing.</p>`;
+        else {
+          const lt = h.legTime;
+          html += `<div class="tablewrap"><table><thead><tr><th>Circuit</th><th class="n">${h.dmeLimit ? 'DME at turn' : 'Outbound'}</th><th class="n">Out hdg</th><th class="n">Ideal hdg</th><th class="n">Inbound needle</th><th class="n">Inbound leg</th><th class="n">Non-holding side</th></tr></thead><tbody>`;
+          done.forEach(c => {
+            const tOk = h.dmeLimit ? c.dmeOk : c.timeOk; judged += 2; if (!tOk || c.trackOk === false) pass = false;
+            const outCell = h.dmeLimit ? (c.dmeAtTurnIn != null ? `D${c.dmeAtTurnIn.toFixed(1)}` : '—') : (c.outboundTime != null ? fmtT(c.outboundTime) : '—');
+            html += `<tr><td>${c.n}</td><td class="n">${outCell} ${P(tOk, tOk ? 'OK' : 'Off')}</td><td class="n">${c.outboundHdg != null ? pad3(c.outboundHdg) : '—'}</td><td class="n">${c.idealHo != null ? pad3(c.idealHo) : '—'}</td>
+              <td class="n">${c.inboundMaxDev != null ? c.inboundMaxDev.toFixed(1) + '°' : 'short'} ${P(c.trackOk, c.trackOk === null ? 'Short' : c.trackOk ? 'OK' : 'Off')}</td><td class="n">${c.inboundTime != null ? fmtT(c.inboundTime) : '—'}</td><td class="n">${c.nonHoldSideNm.toFixed(2)} NM</td></tr>`;
+          });
+          html += `</tbody></table></div>`;
+          html += `<p class="meta">${h.dmeLimit ? `Turn inbound at D${h.dmeLimit.toFixed(1)} ±${a.tol.dmeLimitNm} NM` : `Outbound ${fmtT(lt)} from abeam the fix, ±${a.tol.outboundSec} s`} · inbound needle within ±${a.tol.inboundDeg}°, judged more than 1 NM from the VOR · "Ideal hdg" is the outbound heading that would have rolled you out on the inbound track from where you crossed the fix. ${cite('timing')} ${cite('tolerances')}</p>`;
+          if (done.some(c => c.abeamInTurn)) html += `<p class="note">On at least one circuit you passed abeam the fix while still in the outbound turn. Timing then starts from abeam, as in the rule, not from the end of the turn.</p>`;
+        }
+        const id = a.ideal && a.ideal.rule;
+        html += `<div class="tips"><h3>What would have worked in this wind</h3>`;
+        if (id && id.Ho != null) {
+          const out = E.outboundCourse(h), corr = E.n180(id.Ho - out);
+          const wca = E.headingForTrack(out, sc.tas, sc.env.windFrom, sc.env.windKt).wca;
+          html += `<p class="tip">Wind ${sc.env.windKt ? pad3(sc.env.windFrom) + '°/' + sc.env.windKt + ' kt' : 'calm'}. Flying outbound heading <b class="num">${pad3(id.Ho)}°</b> ${h.dmeLimit ? 'to D' + h.dmeLimit.toFixed(1) : 'for ' + fmtT(id.To)} rolls you out on the inbound track. That is ${Math.abs(corr).toFixed(0)}° off the outbound course${Math.abs(wca) > 0.5 ? `, ${(corr / wca).toFixed(1)}× the outbound drift of ${Math.abs(wca).toFixed(0)}°` : ''}. The inbound leg then takes ${fmtT(id.inboundTime)}. <span class="cite">Computed in the model</span></p>`;
+          if (a.ideal.technique && Math.abs(a.ideal.technique.To - id.To) > 3) html += `<p class="tip tech">To make the inbound leg ${fmtT(h.legTime)}, adjust the outbound time to ${fmtT(a.ideal.technique.To)} at heading ${pad3(a.ideal.technique.Ho)}°. This is a timing technique; the sources used here only give the outbound time. <span class="cite uns">Not in the sources</span></p>`;
+        } else html += `<p class="note">No heading puts you back on the inbound track in this wind with these legs.</p>`;
+        html += `<p class="meta">${sc.governs === 'bank25' ? `At ${sc.tas.toFixed(0)} kt TAS the 25° limit governs; rate one would need ${E.rateOneBank(sc.tas).toFixed(0)}°.` : `At ${sc.tas.toFixed(0)} kt TAS rate one needs only ${sc.bankLimit.toFixed(0)}°, so rate one governs.`} ${cite('bank')} · Time in the hold ${fmtT(a.holdTime)}, about ${Math.round(a.fuelLb)} lb at 900 PPH ${cite('fuel')}</p></div>`;
+      }
+    } else {
+      const A = sc.arc;
+      if (!a.join) { html += `<p class="empty">${a.summary}</p>`; pass = false; }
+      else {
+        const j = a.join, ij = a.idealJoin;
+        const jok = j.errRoll != null ? Math.abs(j.errRoll) <= 0.3 : null; judged++; if (jok === false) pass = false;
+        html += `<div class="verdict"><div class="row"><h3>Joining the arc</h3>${P(jok, jok ? 'On the arc' : jok === null ? 'No roll-out' : 'Off the arc')}</div>
+          <p>You started the turn at <span class="num">D${j.dmeStart.toFixed(1)}</span> (R-${pad3(j.radStart)}) and rolled out at <span class="num">D${j.dmeRoll != null ? j.dmeRoll.toFixed(2) : '—'}</span>${j.errRoll != null ? `, ${Math.abs(j.errRoll).toFixed(2)} NM ${j.errRoll > 0 ? 'outside' : 'inside'} the arc` : ''}.
+          ${ij ? `For the track you were on, starting the turn at <b class="num">D${ij.dmeStart.toFixed(1)}</b> would have rolled you out on the arc. Your turn radius is ${ij.radiusNm.toFixed(2)} NM.` : ''} ${cite('arcLead')}</p></div>`;
+        const ar = a.arc; judged++; if (!ar.ok) pass = false;
+        html += `<div class="verdict"><div class="row"><h3>On the arc</h3>${P(ar.ok)}</div>
+          <p>Largest DME error <span class="num">${ar.maxErr != null ? ar.maxErr.toFixed(2) : '—'} NM</span>, average (RMS) ${ar.rmsErr != null ? ar.rmsErr.toFixed(2) : '—'} NM. You were within ±${a.tol.arcNm} NM ${ar.pctInside != null ? ar.pctInside.toFixed(0) : '—'}% of the time. ${cite('tolerances')}</p></div>`;
+        if (A.exitCourse != null) {
+          const x = a.exit, ix = a.idealExit;
+          if (x) {
+            judged++; if (!x.ok) pass = false;
+            html += `<div class="verdict"><div class="row"><h3>Turning onto final ${pad3(A.exitCourse)}°</h3>${P(x.ok)}</div>
+              <p>You started the turn at R-${pad3(x.radStart)}${ix ? `; the lead radial for this wind is <b class="num">R-${pad3(ix.leadRadial)}</b> (${ix.lead.toFixed(1)}° before R-${pad3(A.exitCourse + 180)})` : ''}. On final the needle peaked at <span class="num">${x.finalMaxDev != null ? x.finalMaxDev.toFixed(1) : '—'}°</span> before FD24. ${cite('arcLead')}</p></div>`;
+          } else { html += `<p class="empty">You didn't turn onto final ${pad3(A.exitCourse)}°.</p>`; pass = false; }
+        }
+        if (!ar.reachedEnd && A.exitCourse == null) html += `<p class="note">The run ended before the end of the arc (about R-${pad3(A.endRadial)}).</p>`;
+      }
+    }
+    $('debrief').innerHTML = html;
+    $('debriefState').className = 'pill ' + (pass ? 'ok' : 'bad');
+    $('debriefState').textContent = pass ? 'All within limits' : 'Some items outside limits';
+    drawMap();
+    const rec = store.get('recent', []);
+    rec.unshift({ when: Date.now(), proc: sc.proc.title, place: sc.proc.place, wind: sc.env.windKt ? pad3(sc.env.windFrom) + '/' + sc.env.windKt : 'calm', pass, seed: S.seed });
+    store.set('recent', rec.slice(0, 8)); renderRecent();
+  }
+  function renderRecent() {
+    const rec = store.get('recent', []);
+    $('recent').innerHTML = rec.length ? rec.map(r => `<div><span>${r.proc} · ${r.place} · ${r.wind}</span><span class="pill ${r.pass ? 'ok' : 'bad'}">${r.pass ? 'Within' : 'Outside'}</span></div>`).join('') : '<p class="empty">None yet.</p>';
+  }
+  function drawMap() {
+    const c = $('map'); if (!c) return;
+    const { ctx, w, h } = fitCanvas('map'), sc = S.sc, a = S.analysis, smp = S.run.samples;
+    ctx.fillStyle = C.raised; ctx.fillRect(0, 0, w, h);
+    const pts = smp.map(s => [s.x, s.y]).concat([[0, 0]]);
+    if (sc.hold) pts.push([sc.hold.fx, sc.hold.fy]);
+    let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+    pts.forEach(([x, y]) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); });
+    if (sc.hold) { const fx = sc.hold.fx, fy = sc.hold.fy; minx = Math.min(minx, fx - 3); maxx = Math.max(maxx, fx + 3); miny = Math.min(miny, fy - 3); maxy = Math.max(maxy, fy + 3); }
+    const pad = 26, sx = (w - 2 * pad) / Math.max(0.5, maxx - minx), sy = (h - 2 * pad) / Math.max(0.5, maxy - miny), k = Math.min(sx, sy);
+    const ox = (w - (maxx - minx) * k) / 2, oy = (h - (maxy - miny) * k) / 2;
+    const T = (x, y) => [ox + (x - minx) * k, h - (oy + (y - miny) * k)];
+    // reference geometry
+    ctx.lineWidth = 1; ctx.setLineDash([5, 5]); ctx.strokeStyle = C.muted;
+    if (sc.hold) {
+      const hh = sc.hold, F = E.holdFrame(hh.inbound, hh.turn), r = E.turnRadiusNm(sc.tas, sc.bankLimit), L = sc.tas / 3600 * hh.legTime;
+      // still-air reference racetrack
+      ctx.beginPath();
+      const at = (al, la) => T(hh.fx + F.u[0] * al + F.n[0] * la, hh.fy + F.u[1] * al + F.n[1] * la);
+      let p = at(0, 0); ctx.moveTo(p[0], p[1]);
+      for (let i = 0; i <= 30; i++) { const th = Math.PI * i / 30; p = at(r * Math.sin(th), r - r * Math.cos(th)); ctx.lineTo(p[0], p[1]); }
+      p = at(-L, 2 * r); ctx.lineTo(p[0], p[1]);
+      for (let i = 0; i <= 30; i++) { const th = Math.PI * i / 30; p = at(-L - r * Math.sin(th), r + r * Math.cos(th)); ctx.lineTo(p[0], p[1]); }
+      ctx.closePath(); ctx.stroke();
+      ctx.setLineDash([]); ctx.strokeStyle = C.lineUi; ctx.beginPath(); p = at(-L - 2, 0); ctx.moveTo(p[0], p[1]); p = at(1.5, 0); ctx.lineTo(p[0], p[1]); ctx.stroke();
+    } else {
+      const A = sc.arc, [cx0, cy0] = T(0, 0);
+      ctx.beginPath(); ctx.arc(cx0, cy0, A.R * k, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]); ctx.strokeStyle = C.lineUi;
+      const ray = (rad, d) => { const q = T(d * Math.sin(rad * D2R), d * Math.cos(rad * D2R)); ctx.beginPath(); ctx.moveTo(cx0, cy0); ctx.lineTo(q[0], q[1]); ctx.stroke(); };
+      if (A.endRadial != null) ray(A.endRadial, A.R + 2);
+      if (A.exitCourse != null) ray(E.n360(A.exitCourse + 180), A.R + 2);
+      if (a && a.idealExit) { ctx.setLineDash([2, 4]); ctx.strokeStyle = C.warn; ray(a.idealExit.leadRadial, A.R + 1.5); ctx.setLineDash([]); }
+    }
+    ctx.setLineDash([]);
+    // track, coloured by phase
+    const pIdx = a && a.passages ? a.passages.map(t => smp.findIndex(s => s.t >= t)) : [];
+    const phaseCol = i => { if (!pIdx.length) return C.accent; if (i < pIdx[0]) return C.muted; if (pIdx.length < 2 || i < pIdx[1]) return C.warn; return C.accent; };
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    for (let i = 1; i < smp.length; i++) {
+      const [x1, y1] = T(smp[i - 1].x, smp[i - 1].y), [x2, y2] = T(smp[i].x, smp[i].y);
+      ctx.strokeStyle = sc.arc ? C.accent : phaseCol(i); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    // station and fix
+    const [vx, vy] = T(0, 0); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.6; ctx.beginPath();
+    for (let i = 0; i < 6; i++) { const t = Math.PI / 3 * i; ctx[i ? 'lineTo' : 'moveTo'](vx + 7 * Math.cos(t), vy + 7 * Math.sin(t)); } ctx.closePath(); ctx.stroke();
+    ctx.fillStyle = C.ink; ctx.font = `11px "B612 Mono", ui-monospace, monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(sc.station.ident, vx + 10, vy);
+    if (sc.hold && sc.hold.fixType === 'dme') { const [fx, fy] = T(sc.hold.fx, sc.hold.fy); ctx.beginPath(); ctx.moveTo(fx, fy - 7); ctx.lineTo(fx - 6, fy + 5); ctx.lineTo(fx + 6, fy + 5); ctx.closePath(); ctx.stroke(); ctx.fillText(sc.hold.fixName, fx + 9, fy); }
+    // start and end markers
+    if (smp.length) { const [x, y] = T(smp[0].x, smp[0].y); ctx.fillStyle = C.muted; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
+    // north arrow, scale, wind
+    ctx.fillStyle = C.muted; ctx.textAlign = 'center'; ctx.font = `10px "B612 Mono", ui-monospace, monospace`;
+    ctx.beginPath(); ctx.moveTo(w - 18, 10); ctx.lineTo(w - 23, 22); ctx.lineTo(w - 13, 22); ctx.closePath(); ctx.fill(); ctx.fillText('MAG', w - 18, 30);
+    const nm = k; ctx.strokeStyle = C.muted; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(12, h - 12); ctx.lineTo(12 + nm, h - 12); ctx.stroke(); ctx.textAlign = 'left'; ctx.fillText('1 NM', 16 + nm, h - 12);
+    if (sc.env.windKt) {
+      const wx = 30, wy = 30, d = (sc.env.windFrom + 180) * D2R, L = 16;
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(wx - Math.sin(d) * L, wy + Math.cos(d) * L); ctx.lineTo(wx + Math.sin(d) * L, wy - Math.cos(d) * L); ctx.stroke();
+      ctx.beginPath(); const hx = wx + Math.sin(d) * L, hy = wy - Math.cos(d) * L; ctx.arc(hx, hy, 3, 0, Math.PI * 2); ctx.fillStyle = C.ink; ctx.fill();
+      ctx.fillStyle = C.muted; ctx.fillText(`${pad3(sc.env.windFrom)}/${sc.env.windKt}`, 8, 56);
+    }
+    $('mapLegend').innerHTML = sc.hold
+      ? `<span><i style="background:${C.muted}"></i>Arrival</span><span><i style="background:${C.warn}"></i>Entry</span><span><i style="background:${C.accent}"></i>Circuits</span><span><i style="background:none;border-top:1px dashed ${C.muted}"></i>Still-air pattern for reference</span>`
+      : `<span><i style="background:${C.accent}"></i>Your track</span><span><i style="background:none;border-top:1px dashed ${C.muted}"></i>${sc.arc.R} DME arc</span>${a && a.idealExit ? `<span><i style="background:${C.warn}"></i>Lead radial</span>` : ''}`;
+  }
+  window.addEventListener('resize', () => { draw(); if (S.analysis) drawMap(); });
+
+  /* ---------- checks panel ---------- */
+  function renderChecks() {
+    const ok = TESTS.passed === TESTS.total;
+    $('checksPill').className = 'pill ' + (ok ? 'ok' : 'bad');
+    $('checksPill').textContent = `${TESTS.passed}/${TESTS.total} checks pass`;
+    const pw = Math.max(...PLATES.plates.map(p => p.errNm));
+    $('checkSummary').textContent = `${TESTS.passed} of ${TESTS.total} automated checks pass (run ${TESTS.when.slice(0, 10)}). They cover the physics, the entry rules, whole flights by a scripted ideal pilot, and the wind solutions. ${PLATES.plates.length} fixes were checked against the plan views on ${new Set(PLATES.plates.map(p => p.chart)).size} Jeppesen charts, the worst ${pw.toFixed(2)} NM off.`;
+    $('checkList').innerHTML = TESTS.results.map(r => `<div class="check">${P(r.pass, r.pass ? 'Pass' : 'Fail')}<span>${r.name}</span><span class="d">${r.detail}</span></div>`).join('');
+    $('plateTable').querySelector('tbody').innerHTML = PLATES.plates.map(p => `<tr><td>${p.chart}</td><td>${p.fix}</td><td class="n">${p.errNm.toFixed(2)} NM</td><td>${P(p.pass, p.pass ? 'On symbol' : 'Off')}</td></tr>`).join('');
+    $('ruleList').innerHTML = DATA.rules.map(r => `<div class="rule"><span class="r">${r.text}</span>${cite(r.id)}</div>`).join('') +
+      `<p class="note">Sources: ${Object.entries(DATA.sources).map(([k, v]) => `<b>${SRC[k]}</b>: ${v}`).join(' · ')}</p>`;
+  }
+
+  window.__trainerDebug = { S, finish, newScenario, draw };
+  renderProcList(); renderChecks(); renderRecent();
+  newScenario();
+  requestAnimationFrame(frame);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw());
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(() => navigator.serviceWorker.ready).then(() => {
+      const pill = document.createElement('span');
+      pill.className = 'pill ok'; pill.textContent = 'Works offline';
+      const row = document.getElementById('checksPill');
+      if (row && row.parentNode) row.parentNode.appendChild(pill);
+    }).catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
